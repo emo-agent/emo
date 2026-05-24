@@ -6,7 +6,6 @@
 	let scrollEl = $state<HTMLElement | null>(null);
 
 	$effect(() => {
-		// Track messages length to trigger scroll
 		const _ = daemon.messages.length;
 		if (scrollEl) {
 			scrollEl.scrollTop = scrollEl.scrollHeight;
@@ -17,26 +16,41 @@
 <div class="flex h-svh flex-col">
 	<!-- Top bar -->
 	<header class="flex shrink-0 items-center gap-3 border-b px-4 py-3">
-		<h1 class="text-foreground flex-1 truncate font-semibold">
-			{daemon.activeSession?.title ?? 'emo'}
-		</h1>
+		<div class="flex items-center gap-2">
+			<img src="/logo.png" alt="emo" class="h-6 w-6 select-none" />
+			<h1 class="truncate font-semibold text-foreground">
+				{daemon.activeSession?.title ?? 'emo'}
+			</h1>
+		</div>
 	</header>
 
 	<!-- Error banner -->
 	{#if daemon.error}
 		<div
-			class="bg-destructive/10 text-destructive border-destructive/20 shrink-0 border-b px-4 py-2 text-sm"
+			class="shrink-0 border-b border-destructive/20 bg-destructive/10 px-4 py-2 text-sm text-destructive"
 		>
 			{daemon.error}
 		</div>
 	{/if}
 
-	<!-- Messages area -->
+	<!-- Messages / Welcome -->
 	<div bind:this={scrollEl} class="flex-1 overflow-y-auto px-4 py-6">
 		{#if daemon.messages.length === 0}
-			<div class="flex h-full flex-col items-center justify-center gap-3">
-				<p class="text-muted-foreground text-lg font-medium">Start a conversation</p>
-				<p class="text-muted-foreground/60 text-sm">Ask emo anything…</p>
+			<div
+				class="mx-auto flex h-full max-w-2xl flex-col items-center justify-center gap-6 text-center"
+			>
+				<!-- Greeting -->
+				<div class="space-y-2">
+					<div class="flex flex-col items-center">
+						<img src="/logo.png" class="h-15 w-15" alt="Emo Logo" />
+					</div>
+
+					<h2 class="text-xl font-medium tracking-tight text-foreground sm:text-3xl">
+						How can I help you today?
+					</h2>
+					<p class="text-sm text-muted-foreground"></p>
+				</div>
+				<ChatInput />
 			</div>
 		{:else}
 			<div class="mx-auto flex max-w-3xl flex-col gap-4">
@@ -47,10 +61,12 @@
 		{/if}
 	</div>
 
-	<!-- Input -->
-	<div class="shrink-0">
-		<div class="mx-auto max-w-3xl">
-			<ChatInput />
+	{#if daemon.messages.length !== 0}
+		<!-- Input -->
+		<div class="shrink-0">
+			<div class="mx-auto max-w-2xl">
+				<ChatInput />
+			</div>
 		</div>
-	</div>
+	{/if}
 </div>

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 import os
 from pathlib import Path
 from typing import Any
@@ -20,10 +21,10 @@ from emo.config.models import (
     RouterConfig,
 )
 
-
 # ---------------------------------------------------------------------------
 # Deep merge
 # ---------------------------------------------------------------------------
+
 
 def _deep_merge(base: dict, override: dict) -> dict:
     """Return a new dict with *override* recursively merged into *base*."""
@@ -39,6 +40,7 @@ def _deep_merge(base: dict, override: dict) -> dict:
 # ---------------------------------------------------------------------------
 # Coercion: raw dict → typed dataclasses
 # ---------------------------------------------------------------------------
+
 
 def _coerce_llm(data: dict[str, Any]) -> LLMConfig:
     return LLMConfig(
@@ -90,6 +92,7 @@ def _coerce_agent(data: dict[str, Any], name: str = "") -> AgentConfig:
 
 def _coerce_router(data: dict[str, Any]) -> RouterConfig:
     from emo.config.defaults import DEFAULT_ROUTER_LLM
+
     llm_data = _deep_merge(DEFAULT_ROUTER_LLM, data.get("llm", {}))
     return RouterConfig(
         enabled=bool(data.get("enabled", True)),
@@ -137,6 +140,7 @@ def _coerce_root(data: dict[str, Any], config_path: Path | None = None) -> RootC
 # File discovery and loading
 # ---------------------------------------------------------------------------
 
+
 def _candidate_paths(path: str | Path | None) -> list[Path]:
     """Return config file candidates ordered highest → lowest priority."""
     candidates: list[Path] = []
@@ -179,6 +183,26 @@ def _migrate_v1(data: dict[str, Any]) -> dict[str, Any]:
     return data
 
 
+log = logging.getLogger(__name__)
+
+
+def _mask_keys(data: dict[str, Any]) -> dict[str, Any]:
+    """Return a copy of *data* with api_key values masked for logging."""
+    out = {}
+    for k, v in data.items():
+        if k == "api_key" and isinstance(v, str):
+            out[k] = v[:8] + "…" if len(v) > 8 else "***"
+        elif isinstance(v, dict):
+            out[k] = _mask_keys(v)
+        elif isinstance(v, list):
+            out[k] = [
+                _mask_keys(item) if isinstance(item, dict) else item for item in v
+            ]
+        else:
+            out[k] = v
+    return out
+
+
 def load_config(path: str | Path | None = None) -> RootConfig:
     """Load and merge all config files, returning a typed :class:`RootConfig`.
 
@@ -201,6 +225,10 @@ def load_config(path: str | Path | None = None) -> RootConfig:
             with candidate.open() as f:
                 loaded = yaml.safe_load(f) or {}
             found.append((candidate, _migrate_v1(loaded)))
+            log.info("Config: found %s", candidate)
+
+    if not found:
+        log.warning("Config: no config file found (checked: %s)", candidates)
 
     # Merge lowest → highest priority
     merged: dict[str, Any] = DEFAULT_ROOT.copy()
@@ -208,4 +236,5 @@ def load_config(path: str | Path | None = None) -> RootConfig:
         merged = _deep_merge(merged, cfg_data)
 
     highest_path = found[0][0] if found else None
+    # log.info("Config: final merged config\n%s", yaml.dump(_mask_keys(merged), default_flow_style=False, allow_unicode=True).rstrip())
     return _coerce_root(merged, config_path=highest_path)

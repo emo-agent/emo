@@ -40,6 +40,7 @@ from __future__ import annotations
 import asyncio
 import dataclasses
 import logging
+import sqlite3
 import threading
 import time
 import uuid
@@ -100,6 +101,114 @@ from emo.daemon.protocol import (
 log = logging.getLogger(__name__)
 
 
+# ── Chat persistence (SQLite) ─────────────────────────────────────────────────
+
+class ChatStore:
+    """Persist chat sessions and messages to SQLite.
+
+    Uses the same database file as :class:`~emo.memory.PersistentMemory` so
+    everything lives in one place.  Thread-safe via a dedicated lock.
+    """
+
+    def __init__(self, db_path: Path) -> None:
+        db_path = Path(db_path).expanduser()
+        db_path.parent.mkdir(parents=True, exist_ok=True)
+        self.db_path = db_path
+        self._conn = sqlite3.connect(str(db_path), check_same_thread=False)
+        self._lock = threading.Lock()
+        self._init_schema()
+
+    def _init_schema(self) -> None:
+        with self._lock:
+            self._conn.executescript("""
+                CREATE TABLE IF NOT EXISTS chat_sessions (
+                    id         TEXT PRIMARY KEY,
+                    title      TEXT NOT NULL,
+                    created_at REAL NOT NULL,
+                    updated_at REAL NOT NULL
+                );
+
+                CREATE TABLE IF NOT EXISTS chat_messages (
+                    id         TEXT PRIMARY KEY,
+                    session_id TEXT NOT NULL REFERENCES chat_sessions(id) ON DELETE CASCADE,
+                    role       TEXT NOT NULL,
+                    content    TEXT NOT NULL,
+                    created_at REAL NOT NULL
+                );
+                CREATE INDEX IF NOT EXISTS chat_messages_session ON chat_messages(session_id, created_at);
+            """)
+            self._conn.execute("PRAGMA foreign_keys = ON")
+            self._conn.commit()
+
+    # ── Write ops ─────────────────────────────────────────────────────────────
+
+    def save_session(self, session: "DaemonSession") -> None:
+        with self._lock:
+            self._conn.execute(
+                """INSERT INTO chat_sessions (id, title, created_at, updated_at)
+                   VALUES (?, ?, ?, ?)
+                   ON CONFLICT(id) DO UPDATE SET title=excluded.title,
+                                                  updated_at=excluded.updated_at""",
+                (session.id, session.title, session.created_at, session.updated_at),
+            )
+            self._conn.commit()
+
+    def save_message(self, session_id: str, msg: "StoredMessage") -> None:
+        with self._lock:
+            self._conn.execute(
+                """INSERT INTO chat_messages (id, session_id, role, content, created_at)
+                   VALUES (?, ?, ?, ?, ?)
+                   ON CONFLICT(id) DO UPDATE SET content=excluded.content""",
+                (msg.id, session_id, msg.role, msg.content, msg.created_at),
+            )
+            self._conn.commit()
+
+    def update_session_title_and_ts(self, session_id: str, title: str, updated_at: float) -> None:
+        with self._lock:
+            self._conn.execute(
+                "UPDATE chat_sessions SET title=?, updated_at=? WHERE id=?",
+                (title, updated_at, session_id),
+            )
+            self._conn.commit()
+
+    def delete_session(self, session_id: str) -> None:
+        with self._lock:
+            self._conn.execute("PRAGMA foreign_keys = ON")
+            self._conn.execute("DELETE FROM chat_sessions WHERE id=?", (session_id,))
+            self._conn.commit()
+
+    # ── Read ops ──────────────────────────────────────────────────────────────
+
+    def load_all_sessions(self) -> list[dict[str, Any]]:
+        """Return list of session dicts with their messages, sorted newest-first."""
+        with self._lock:
+            rows = self._conn.execute(
+                "SELECT id, title, created_at, updated_at FROM chat_sessions ORDER BY updated_at DESC"
+            ).fetchall()
+        result = []
+        for (sid, title, created_at, updated_at) in rows:
+            msgs = self._load_messages(sid)
+            result.append({
+                "id": sid,
+                "title": title,
+                "created_at": created_at,
+                "updated_at": updated_at,
+                "messages": msgs,
+            })
+        return result
+
+    def _load_messages(self, session_id: str) -> list[dict[str, Any]]:
+        with self._lock:
+            rows = self._conn.execute(
+                "SELECT id, role, content, created_at FROM chat_messages WHERE session_id=? ORDER BY created_at",
+                (session_id,),
+            ).fetchall()
+        return [{"id": r[0], "role": r[1], "content": r[2], "created_at": r[3]} for r in rows]
+
+    def close(self) -> None:
+        self._conn.close()
+
+
 def _deep_merge(base: dict, patch: dict) -> None:
     """Recursively merge *patch* into *base* in-place."""
     for k, v in patch.items():
@@ -114,14 +223,30 @@ def _deep_merge(base: dict, patch: dict) -> None:
 class DaemonSession:
     """State for one conversation session."""
 
-    def __init__(self, context_window: int = 40_000) -> None:
-        self.id = str(uuid.uuid4())
-        self.title = "New Chat"
-        self.created_at = time.time()
-        self.updated_at = time.time()
+    def __init__(
+        self,
+        context_window: int = 40_000,
+        store: "ChatStore | None" = None,
+        *,
+        session_id: str | None = None,
+        title: str = "New Chat",
+        created_at: float | None = None,
+        updated_at: float | None = None,
+    ) -> None:
+        self.id = session_id or str(uuid.uuid4())
+        self.title = title
+        now = time.time()
+        self.created_at = created_at if created_at is not None else now
+        self.updated_at = updated_at if updated_at is not None else now
         self.memory = SessionMemory(context_window)
         self.messages: list[StoredMessage] = []
         self._lock = threading.Lock()
+        self._store = store
+
+    def load_message(self, msg: StoredMessage) -> None:
+        """Load a persisted message without writing it back to storage."""
+        with self._lock:
+            self.messages.append(msg)
 
     def add_message(self, role: str, content: str) -> StoredMessage:
         msg = StoredMessage(role=role, content=content)
@@ -130,16 +255,25 @@ class DaemonSession:
             self.updated_at = time.time()
             if role == "user" and self.title == "New Chat":
                 self.title = content[:60] + ("…" if len(content) > 60 else "")
+        # Persist outside the lock to avoid deadlock with ChatStore's own lock
+        if self._store:
+            self._store.save_message(self.id, msg)
+            self._store.update_session_title_and_ts(self.id, self.title, self.updated_at)
         return msg
 
     def update_last_assistant(self, content: str) -> None:
         """Replace the content of the most-recent assistant message."""
+        target: StoredMessage | None = None
         with self._lock:
             for m in reversed(self.messages):
                 if m.role == "assistant":
                     m.content = content
                     self.updated_at = time.time()
-                    return
+                    target = m
+                    break
+        if self._store and target is not None:
+            self._store.save_message(self.id, target)
+            self._store.update_session_title_and_ts(self.id, self.title, self.updated_at)
 
     def to_info(self) -> SessionInfo:
         with self._lock:
@@ -157,15 +291,28 @@ class DaemonSession:
 class SessionRegistry:
     """Thread-safe collection of all active daemon sessions."""
 
-    def __init__(self) -> None:
+    def __init__(self, store: "ChatStore | None" = None) -> None:
         self._sessions: dict[str, DaemonSession] = {}
         self._lock = threading.Lock()
+        self._store = store
 
     def create(self, context_window: int = 40_000) -> DaemonSession:
-        s = DaemonSession(context_window)
+        s = DaemonSession(context_window, store=self._store)
         with self._lock:
             self._sessions[s.id] = s
+        if self._store:
+            self._store.save_session(s)
         return s
+
+    def add(self, session: DaemonSession) -> None:
+        """Register a pre-built session (used when loading from DB)."""
+        with self._lock:
+            self._sessions[session.id] = session
+
+    def load(self, sessions: list[DaemonSession]) -> None:
+        with self._lock:
+            for session in sessions:
+                self._sessions[session.id] = session
 
     def get(self, session_id: str) -> DaemonSession | None:
         with self._lock:
@@ -173,7 +320,10 @@ class SessionRegistry:
 
     def delete(self, session_id: str) -> bool:
         with self._lock:
-            return self._sessions.pop(session_id, None) is not None
+            found = self._sessions.pop(session_id, None) is not None
+        if found and self._store:
+            self._store.delete_session(session_id)
+        return found
 
     def all(self) -> list[DaemonSession]:
         with self._lock:
@@ -203,8 +353,9 @@ class DaemonServer:
 
         # Shared infrastructure
         self._persistent_memory = PersistentMemory(config.memory_db_path)
+        self._chat_store = ChatStore(config.memory_db_path)
         self._provider = LiteLLMProvider(config)
-        self._sessions = SessionRegistry()
+        self._sessions = SessionRegistry(self._chat_store)
 
         # Extra context (skills + persistent facts) — refreshed on /remember
         self._extra_context = self._build_extra_context()
@@ -221,6 +372,8 @@ class DaemonServer:
             extra_context=self._extra_context,
         )
 
+        self._load_persisted_sessions()
+
     # ── Context helpers ───────────────────────────────────────────────────────
 
     def _build_extra_context(self) -> str:
@@ -236,6 +389,29 @@ class DaemonServer:
     def _refresh_context(self) -> None:
         self._extra_context = self._build_extra_context()
         self._supervisor.update_context(self._extra_context)
+
+    def _load_persisted_sessions(self) -> None:
+        sessions: list[DaemonSession] = []
+        for record in self._chat_store.load_all_sessions():
+            session = DaemonSession(
+                self.config.context_window,
+                store=self._chat_store,
+                session_id=record["id"],
+                title=record["title"],
+                created_at=record["created_at"],
+                updated_at=record["updated_at"],
+            )
+            for item in record["messages"]:
+                msg = StoredMessage(
+                    id=item["id"],
+                    role=item["role"],
+                    content=item["content"],
+                    created_at=item["created_at"],
+                )
+                session.load_message(msg)
+                session.memory.add(msg.role, msg.content)
+            sessions.append(session)
+        self._sessions.load(sessions)
 
     # ── Turn execution (runs in a thread) ─────────────────────────────────────
 
@@ -392,7 +568,7 @@ class DaemonServer:
         session.add_message("user", msg.content)
 
         # Pre-create the assistant message slot (content filled in as tokens arrive)
-        assistant_msg = session.add_message("assistant", "")
+        session.add_message("assistant", "")
 
         # Queue for streaming tokens from worker thread → async loop
         token_queue: asyncio.Queue[tuple | None] = asyncio.Queue()
@@ -451,8 +627,7 @@ class DaemonServer:
             return
 
         # Update stored assistant message with full reply
-        assistant_msg.content = reply
-        session.updated_at = time.time()
+        session.update_last_assistant(reply)
 
         await ws.send(DoneMsg(session_id=session_id, content=reply, agent_name=agent_name).to_json())
 

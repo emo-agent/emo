@@ -1,30 +1,280 @@
 <script lang="ts">
 	import { daemon } from '$lib/daemon/store.svelte';
-	import {
-		PromptInput,
-		PromptInputBody,
-		PromptInputTextarea,
-		PromptInputToolbar,
-		PromptInputSubmit
-	} from '$lib/components/ai-elements/prompt-input/index';
-	import type { Message } from '$lib/components/ai-elements/prompt-input/index';
+	import { Plus, ArrowUp, Mic } from '@lucide/svelte';
+
+	const COMMANDS = [
+		'/help',
+		'/new',
+		'/model',
+		'/agent',
+		'/auto',
+		'/memory',
+		'/remember',
+		'/forget',
+		'/skills',
+		'/agents',
+		'/status',
+		'/exit'
+	];
+
+	type CompletionType = '@' | '/';
+
+	let draft = $state('');
+	let textareaEl = $state<HTMLTextAreaElement | null>(null);
+
+	let showAutocomplete = $state(false);
+	let autocompleteItems = $state<string[]>([]);
+	let selectedIndex = $state(0);
+	let completionType = $state<CompletionType>('@');
+
+	// Position of the dropdown (fixed, computed from textarea rect)
+	let dropdownTop = $state(0);
+	let dropdownLeft = $state(0);
+	let dropdownWidth = $state(0);
+
+	// ── Helpers ───────────────────────────────────────────────────────────────
+
+	function resize() {
+		if (!textareaEl) return;
+		textareaEl.style.height = '48px';
+		textareaEl.style.height = `${Math.min(textareaEl.scrollHeight, 180)}px`;
+	}
+
+	function getCursorPosition(): number {
+		return textareaEl?.selectionStart ?? draft.length;
+	}
+
+	function getWordAtCursor(): { word: string; start: number } | null {
+		const text = draft.slice(0, getCursorPosition());
+		const cursor = text.length;
+		let start = cursor;
+
+		for (let i = cursor - 1; i >= 0; i--) {
+			const char = text[i];
+			if (char === ' ' || char === '\n') break;
+			start = i;
+		}
+
+		return { word: text.slice(start, cursor), start };
+	}
+
+	function updateDropdownRect() {
+		if (!textareaEl) return;
+		const rect = textareaEl.getBoundingClientRect();
+		// Place dropdown just above the input bar
+		dropdownTop = rect.top - 8;
+		dropdownLeft = rect.left;
+		dropdownWidth = rect.width;
+	}
+
+	// ── Autocomplete logic ────────────────────────────────────────────────────
+
+	function updateAutocomplete() {
+		const wordInfo = getWordAtCursor();
+		if (!wordInfo) { hideAutocomplete(); return; }
+
+		const { word } = wordInfo;
+
+		if (word.startsWith('@')) {
+			completionType = '@';
+			const partial = word.slice(1).toLowerCase();
+			const agents = daemon.agents.length > 0
+				? daemon.agents.map((a) => a.name)
+				: ['general', 'code', 'research'];
+			autocompleteItems = partial
+				? agents.filter((a) => a.toLowerCase().startsWith(partial))
+				: agents;
+			selectedIndex = 0;
+			if (autocompleteItems.length > 0) {
+				updateDropdownRect();
+				showAutocomplete = true;
+			} else {
+				showAutocomplete = false;
+			}
+		} else if (word.startsWith('/')) {
+			completionType = '/';
+			const partial = word.slice(1).toLowerCase();
+			autocompleteItems = COMMANDS.filter((c) => c.slice(1).toLowerCase().startsWith(partial));
+			selectedIndex = 0;
+			if (autocompleteItems.length > 0) {
+				updateDropdownRect();
+				showAutocomplete = true;
+			} else {
+				showAutocomplete = false;
+			}
+		} else {
+			hideAutocomplete();
+		}
+	}
+
+	function hideAutocomplete() {
+		showAutocomplete = false;
+		autocompleteItems = [];
+		selectedIndex = 0;
+	}
+
+	function insertCompletion(value: string) {
+		if (!textareaEl) return;
+
+		const cursor = getCursorPosition();
+		const textBefore = draft.slice(0, cursor);
+		const textAfter = draft.slice(cursor);
+
+		let wordStart = cursor;
+		for (let i = cursor - 1; i >= 0; i--) {
+			if (textBefore[i] === ' ' || textBefore[i] === '\n') break;
+			wordStart = i;
+		}
+
+		const completion = completionType === '@' ? `@${value} ` : `${value} `;
+		draft = textBefore.slice(0, wordStart) + completion + textAfter;
+
+		hideAutocomplete();
+
+		setTimeout(() => {
+			if (textareaEl) {
+				const newPos = wordStart + completion.length;
+				textareaEl.setSelectionRange(newPos, newPos);
+				textareaEl.focus();
+			}
+		}, 0);
+	}
+
+	// ── Submit ────────────────────────────────────────────────────────────────
+
+	function submit() {
+		const text = draft.trim();
+		if (!text || daemon.connectionState !== 'connected') return;
+
+		let agent: string | undefined;
+		let content = text;
+
+		if (text.startsWith('@')) {
+			const parts = text.split(/\s+/);
+			const mention = parts[0].slice(1).toLowerCase();
+			const agentExists = daemon.agents.some((a) => a.name.toLowerCase() === mention);
+			if (agentExists) {
+				agent = mention;
+				content = parts.slice(1).join(' ');
+			}
+		}
+
+		if (!content.trim()) return;
+
+		daemon.sendMessage(content, agent);
+		draft = '';
+		hideAutocomplete();
+		if (textareaEl) textareaEl.style.height = '48px';
+	}
+
+	// ── Keyboard handler ──────────────────────────────────────────────────────
+
+	function onKeydown(event: KeyboardEvent) {
+		if (showAutocomplete) {
+			if (event.key === 'ArrowDown') {
+				event.preventDefault();
+				selectedIndex = (selectedIndex + 1) % autocompleteItems.length;
+				return;
+			}
+			if (event.key === 'ArrowUp') {
+				event.preventDefault();
+				selectedIndex = (selectedIndex - 1 + autocompleteItems.length) % autocompleteItems.length;
+				return;
+			}
+			if (event.key === 'Enter' || event.key === 'Tab') {
+				event.preventDefault();
+				insertCompletion(autocompleteItems[selectedIndex]);
+				return;
+			}
+			if (event.key === 'Escape') {
+				event.preventDefault();
+				hideAutocomplete();
+				return;
+			}
+		}
+
+		if (event.key === 'Enter' && !event.shiftKey) {
+			event.preventDefault();
+			submit();
+		}
+	}
+
+	function onInput() {
+		resize();
+		updateAutocomplete();
+	}
 </script>
 
-<div class="border-t px-4 py-3">
-	<PromptInput
-		onSubmit={(message: Message) => {
-			if (message.text.trim()) {
-				daemon.sendMessage(message.text);
-			}
-		}}
-		class="shadow-md"
+<!-- Dropdown rendered at fixed position so it's never clipped -->
+{#if showAutocomplete && autocompleteItems.length > 0}
+	<!-- svelte-ignore a11y_no_static_element_interactions -->
+	<div
+		class="fixed z-[9999] min-w-40 overflow-hidden rounded-lg border bg-popover py-1 shadow-lg"
+		style="bottom: {window.innerHeight - dropdownTop}px; left: {dropdownLeft}px; width: {dropdownWidth}px;"
+		onmousedown={(e) => e.preventDefault()}
 	>
-		<PromptInputBody>
-			<PromptInputTextarea placeholder="Message emo…" />
-		</PromptInputBody>
-		<PromptInputToolbar>
-			<div></div>
-			<PromptInputSubmit status={daemon.isLoading ? 'submitted' : 'ready'} />
-		</PromptInputToolbar>
-	</PromptInput>
+		<p class="px-2 pb-1 pt-0.5 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+			{completionType === '@' ? 'Agents' : 'Commands'}
+		</p>
+		{#each autocompleteItems as item, i (item)}
+			<button
+				type="button"
+				class="w-full px-3 py-1.5 text-left text-sm transition-colors
+					{i === selectedIndex
+						? 'bg-accent text-accent-foreground'
+						: 'text-popover-foreground hover:bg-accent/60'}"
+				onmousedown={(e) => { e.preventDefault(); insertCompletion(item); }}
+				onmouseenter={() => { selectedIndex = i; }}
+			>
+				{item}
+			</button>
+		{/each}
+	</div>
+{/if}
+
+<div class="w-full px-4 pt-2 pb-4">
+	<div class="mx-auto">
+		<div
+			class="flex min-h-12 items-center gap-3 rounded-4xl border bg-background px-2 py-0 shadow-[0_4px_18px_rgba(0,0,0,0.06)]"
+		>
+			<button
+				type="button"
+				class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+				disabled={daemon.connectionState !== 'connected'}
+				aria-label="Add attachment"
+			>
+				<Plus class="h-5 w-5" />
+			</button>
+
+			<textarea
+				bind:this={textareaEl}
+				bind:value={draft}
+				oninput={onInput}
+				onkeydown={onKeydown}
+				onblur={() => setTimeout(hideAutocomplete, 150)}
+				placeholder="Ask anything"
+				rows={1}
+				disabled={daemon.connectionState !== 'connected'}
+				class="max-h-44 min-h-11 flex-1 resize-none border-0 bg-transparent px-0 py-3 text-[15px] leading-6 text-foreground placeholder:text-muted-foreground/70 focus:ring-0 focus:outline-none"
+			></textarea>
+
+			<button
+				type="button"
+				class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-foreground transition-colors hover:bg-muted"
+				aria-label="Voice input"
+			>
+				<Mic class="h-5 w-5" />
+			</button>
+
+			<button
+				type="button"
+				onclick={submit}
+				disabled={daemon.connectionState !== 'connected' || !draft.trim()}
+				class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-foreground text-background transition-colors hover:opacity-90 disabled:cursor-not-allowed disabled:bg-muted disabled:text-muted-foreground"
+				aria-label="Send message"
+			>
+				<ArrowUp class="h-5 w-5" />
+			</button>
+		</div>
+	</div>
 </div>

@@ -67,12 +67,23 @@ _COMMANDS = [
 class EmoCompleter(Completer):
     """Tab-completion for slash commands and agent names."""
 
-    def __init__(self, agent_names: list[str]) -> None:
-        self._agent_names = agent_names
+    def __init__(self, get_agent_names) -> None:
+        self._get_agent_names = get_agent_names
 
     def get_completions(self, document, complete_event):
         text = document.text_before_cursor
         parts = text.split()
+        agent_names = self._get_agent_names()
+
+        # Handle @ mention completion (in mid-message context)
+        if parts:
+            last_part = parts[-1]
+            if last_part.startswith("@"):
+                partial = last_part[1:]
+                for name in agent_names:
+                    if name.startswith(partial.lower()):
+                        yield Completion(name, start_position=-len(partial))
+                return
 
         # Complete the command itself
         if len(parts) == 0 or (len(parts) == 1 and not text.endswith(" ")):
@@ -86,7 +97,7 @@ class EmoCompleter(Completer):
         if len(parts) >= 1 and parts[0] == "/agent":
             if len(parts) == 1 or (len(parts) == 2 and not text.endswith(" ")):
                 word = parts[1] if len(parts) == 2 else ""
-                for name in self._agent_names:
+                for name in agent_names:
                     if name.startswith(word):
                         yield Completion(name, start_position=-len(word))
 
@@ -323,11 +334,15 @@ class EmoApp:
 
         return False
 
-    def _run_turn(self, user_input: str) -> None:
+    def _run_turn(self, user_input: str, force_agent: str | None = None) -> None:
         self._turn += 1
 
         # Route to agent
-        if self.config.supervisor_enabled and self._current_agent_name == "auto":
+        if force_agent:
+            agent_name = force_agent
+            agent = self.supervisor.get_agent(agent_name)
+            self.console.print(f"[supervisor]→ @{agent_name} agent[/supervisor]")
+        elif self.config.supervisor_enabled and self._current_agent_name == "auto":
             agent_name, agent = self.supervisor.route(user_input)
             self.console.print(f"[supervisor]→ {agent_name} agent[/supervisor]")
         else:
@@ -399,8 +414,8 @@ class EmoApp:
         prompt_session: PromptSession = PromptSession(
             history=FileHistory(str(history_path)),
             auto_suggest=AutoSuggestFromHistory(),
-            completer=EmoCompleter(self.supervisor.agent_names),
-            complete_while_typing=False,
+            completer=EmoCompleter(lambda: self.supervisor.agent_names),
+            complete_while_typing=True,
             style=PROMPT_STYLE,
             multiline=False,
         )
@@ -423,7 +438,22 @@ class EmoApp:
                     )
                 continue
 
-            self._run_turn(user_input)
+            # Handle @agentname prefix to route to specific agent
+            force_agent: str | None = None
+            if user_input.startswith("@"):
+                parts = user_input.split(None, 1)
+                if len(parts) >= 1:
+                    agent_mention = parts[0][1:]  # Remove the @
+                    if agent_mention.lower() in self.supervisor.agent_names:
+                        force_agent = agent_mention.lower()
+                        user_input = parts[1] if len(parts) > 1 else ""
+
+            if not user_input.strip():
+                if force_agent:
+                    self.console.print("[error]No message after @agentname.[/error]")
+                continue
+
+            self._run_turn(user_input, force_agent)
 
 
 # ── Setup wizard ─────────────────────────────────────────────────────────────
