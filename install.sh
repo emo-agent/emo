@@ -11,6 +11,8 @@
 #
 # Or download and run directly:
 #   bash install.sh [--version v0.2.0] [--method binary|pip] [--prefix <dir>]
+#
+# The binary includes the web UI. Run `emo daemon` then open http://127.0.0.1:7778.
 
 set -euo pipefail
 
@@ -241,7 +243,116 @@ _patch_shell_path() {
   esac
 }
 
-# ── First-run config wizard ───────────────────────────────────────────────────
+# ── Service installation (systemd / launchd) ──────────────────────────────────
+_install_service() {
+  local emo_bin="$1"
+  local lan_flag="${2:-}"
+
+  if [[ "$OS_KEY" == "linux" ]]; then
+    _install_systemd "$emo_bin" "$lan_flag"
+  elif [[ "$OS_KEY" == "macos" ]]; then
+    _install_launchd "$emo_bin" "$lan_flag"
+  else
+    warn "Service auto-start is not supported on this OS."
+  fi
+}
+
+_install_systemd() {
+  local emo_bin="$1"
+  local lan_flag="${2:-}"
+  local unit_dir="${HOME}/.config/systemd/user"
+  local unit_file="${unit_dir}/emo-daemon.service"
+
+  # Require systemd user instance
+  if ! command -v systemctl &>/dev/null; then
+    warn "systemctl not found — skipping service install."
+    return
+  fi
+
+  mkdir -p "$unit_dir"
+  cat > "$unit_file" <<EOF
+[Unit]
+Description=emo AI daemon
+After=network.target
+
+[Service]
+ExecStart=${emo_bin} daemon${lan_flag:+ ${lan_flag}}
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=default.target
+EOF
+
+  info "Installed systemd user unit: ${unit_file}"
+
+  systemctl --user daemon-reload
+  systemctl --user enable emo-daemon
+  systemctl --user start  emo-daemon
+
+  # linger lets the user service survive logout
+  if command -v loginctl &>/dev/null; then
+    loginctl enable-linger "$(id -un)" 2>/dev/null || true
+  fi
+
+  if systemctl --user is-active --quiet emo-daemon; then
+    success "emo daemon started  (systemd user service)"
+    info    "Manage with: systemctl --user {status|stop|restart} emo-daemon"
+  else
+    warn "Service may not have started. Check: systemctl --user status emo-daemon"
+  fi
+}
+
+_install_launchd() {
+  local emo_bin="$1"
+  local lan_flag="${2:-}"
+  local plist_dir="${HOME}/Library/LaunchAgents"
+  local plist_file="${plist_dir}/dev.javedh.emo-daemon.plist"
+  local log_dir="${HOME}/.emo/logs"
+
+  # Build the optional <string>--lan</string> element
+  local lan_arg=""
+  if [[ -n "$lan_flag" ]]; then
+    lan_arg="    <string>--lan</string>"$'\n'
+  fi
+
+  mkdir -p "$plist_dir" "$log_dir"
+  cat > "$plist_file" <<EOF
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
+  "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key>             <string>dev.javedh.emo-daemon</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>${emo_bin}</string>
+    <string>daemon</string>
+${lan_arg}  </array>
+  <key>RunAtLoad</key>         <true/>
+  <key>KeepAlive</key>         <true/>
+  <key>StandardOutPath</key>   <string>${log_dir}/daemon.log</string>
+  <key>StandardErrorPath</key> <string>${log_dir}/daemon.err</string>
+</dict>
+</plist>
+EOF
+
+  info "Installed launchd agent: ${plist_file}"
+
+  # Unload any stale copy first (ignore errors if not loaded)
+  launchctl unload "$plist_file" 2>/dev/null || true
+  launchctl load -w "$plist_file"
+
+  if launchctl list | grep -q "dev.javedh.emo-daemon"; then
+    success "emo daemon started  (launchd agent, runs at login)"
+    info    "Logs: ${log_dir}/daemon.log"
+    info    "Manage with: launchctl {unload|load} ${plist_file}"
+  else
+    warn "Service may not have started. Check: launchctl list | grep emo"
+  fi
+}
+
+
 _first_run() {
   [[ -x "$EMO_BIN" ]] || die "Internal error: EMO_BIN not set after install."
   echo ""
@@ -263,8 +374,36 @@ _first_run() {
     info "Existing config found at ${config_file} — skipping setup."
   fi
 
+  # ── Service prompt ──────────────────────────────────────────────────────────
+  if [[ -t 0 ]] && [[ "$OS_KEY" == "linux" || "$OS_KEY" == "macos" ]]; then
+    echo ""
+    info "The emo daemon serves the web UI at http://127.0.0.1:7778."
+
+    read -rp "[emo] Allow access from other devices on your LAN? [y/N] " lan </dev/tty
+    local lan_flag=""
+    case "${lan:-N}" in
+      [Yy]*) lan_flag="--lan" ; info "LAN mode enabled — daemon will bind on 0.0.0.0." ;;
+      *)     lan_flag=""      ; info "LAN mode disabled — daemon will only be reachable locally." ;;
+    esac
+
+    if [[ "$OS_KEY" == "linux" ]]; then
+      info "Install as a systemd user service so it starts automatically at login?"
+    else
+      info "Install as a launchd agent so it starts automatically at login?"
+    fi
+    read -rp "[emo] Install and start the daemon service now? [Y/n] " svc </dev/tty
+    case "${svc:-Y}" in
+      [Yy]*|"") _install_service "$EMO_BIN" "$lan_flag" ;;
+      *)         warn "Skipped. Run 'emo daemon ${lan_flag}' manually whenever you need it." ;;
+    esac
+  elif [[ ! -t 0 ]]; then
+    info "Non-interactive install. To enable auto-start, re-run the installer interactively."
+  fi
+
   echo ""
-  success "Done!  Start a session: emo"
+  success "Done!  Start a session:"
+  echo "  emo              # terminal REPL"
+  echo "  emo daemon       # start daemon + web UI at http://127.0.0.1:7778"
   echo ""
   info "If 'emo' is not found after opening a new shell, add it to PATH manually:"
   echo "  export PATH=\"$(dirname "$EMO_BIN"):\$PATH\""

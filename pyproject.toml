@@ -29,6 +29,10 @@ dev = [
 ]
 build = [
     "pyinstaller>=6.0",
+    # Node.js 20+ and pnpm 10+ are also required to build the web UI before
+    # running PyInstaller.  Install them separately (not via pip):
+    #   brew install node pnpm  (macOS)
+    #   See web/package.json for pnpm scripts.
 ]
 
 [tool.pytest.ini_options]

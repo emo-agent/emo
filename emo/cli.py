@@ -627,12 +627,27 @@ def run_setup(console: Console) -> None:
 def _run_daemon(args: argparse.Namespace, console: Console) -> None:
     """Start the emo WebSocket daemon."""
     import logging
+    import socket
 
     logging.basicConfig(
         level=logging.INFO,
         format="%(asctime)s  %(levelname)-8s  %(name)s  %(message)s",
         datefmt="%H:%M:%S",
     )
+
+    # --lan overrides --host: bind on all interfaces, display the LAN IP
+    if args.lan:
+        bind_host = "0.0.0.0"
+        try:
+            # Connect a UDP socket (no data sent) to discover the outbound LAN IP
+            with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as _s:
+                _s.connect(("8.8.8.8", 80))
+                lan_ip = _s.getsockname()[0]
+        except OSError:
+            lan_ip = "0.0.0.0"
+    else:
+        bind_host = args.host
+        lan_ip = args.host
 
     config = load_config(getattr(args, "config", None))
 
@@ -655,11 +670,23 @@ def _run_daemon(args: argparse.Namespace, console: Console) -> None:
         )
         sys.exit(1)
 
-    from emo.daemon.server import DaemonServer
+    from emo.daemon.server import DaemonServer, _find_web_root
+
+    web_root = _find_web_root()
+    ws_url = f"ws://{lan_ip}:{args.port}/ws"
+    web_url = f"http://{lan_ip}:{args.web_port}" if web_root and args.web_port != 0 else None
+
+    panel_lines = [f"[header]emo daemon[/header]  [muted]{ws_url}[/muted]"]
+    if web_url:
+        panel_lines.append(f"[header]web UI[/header]       [muted]{web_url}[/muted]")
+    else:
+        panel_lines.append("[muted]web UI: assets not found (run pnpm build in web/)[/muted]")
+    if args.lan:
+        panel_lines.append(f"[yellow]LAN mode — bound on 0.0.0.0, reachable at {lan_ip}[/yellow]")
 
     console.print(
         Panel.fit(
-            f"[header]emo daemon[/header]  [muted]ws://{args.host}:{args.port}/ws[/muted]",
+            "\n".join(panel_lines),
             border_style="cyan",
             padding=(0, 2),
         )
@@ -667,7 +694,7 @@ def _run_daemon(args: argparse.Namespace, console: Console) -> None:
     console.print(f"[muted]model:[/muted] [info]{config.model}[/info]")
     console.print("[muted]Press Ctrl+C to stop.[/muted]\n")
 
-    server = DaemonServer(config, host=args.host, port=args.port)
+    server = DaemonServer(config, host=bind_host, port=args.port, web_port=args.web_port)
     try:
         server.serve()
     except KeyboardInterrupt:
@@ -692,7 +719,15 @@ def main() -> None:
         "--host", default="127.0.0.1", help="Bind address (default: 127.0.0.1)"
     )
     daemon_parser.add_argument(
-        "--port", type=int, default=7777, help="Listen port (default: 7777)"
+        "--port", type=int, default=7777, help="WebSocket listen port (default: 7777)"
+    )
+    daemon_parser.add_argument(
+        "--web-port", type=int, default=7778, dest="web_port",
+        help="HTTP port for the web UI (default: 7778, 0 to disable)",
+    )
+    daemon_parser.add_argument(
+        "--lan", action="store_true", default=False,
+        help="Bind on all interfaces (0.0.0.0) so other devices on the LAN can connect",
     )
 
     # default (chat) args

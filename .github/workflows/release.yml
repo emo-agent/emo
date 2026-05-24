@@ -61,6 +61,37 @@ jobs:
     steps:
       - uses: actions/checkout@v4.2.2
 
+      - name: Set up Node.js
+        uses: actions/setup-node@v4.4.0
+        with:
+          node-version: "22"
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: "10"
+          run_install: false
+
+      - name: Get pnpm store directory
+        id: pnpm-store
+        shell: bash
+        run: echo "path=$(pnpm store path --silent)" >> "$GITHUB_OUTPUT"
+
+      - name: Cache pnpm store
+        uses: actions/cache@v4
+        with:
+          path: ${{ steps.pnpm-store.outputs.path }}
+          key: pnpm-${{ runner.os }}-${{ hashFiles('web/pnpm-lock.yaml') }}
+          restore-keys: pnpm-${{ runner.os }}-
+
+      - name: Install web dependencies
+        working-directory: web
+        run: pnpm install --frozen-lockfile
+
+      - name: Build web UI
+        working-directory: web
+        run: pnpm build
+
       - name: Set up Python 3.11
         uses: actions/setup-python@v5.6.0
         with:
@@ -171,9 +202,14 @@ jobs:
           ### First run
           \`\`\`bash
           tar -xzf emo-<platform>.tar.gz
-          ./emo setup   # interactive config wizard
-          ./emo
+          ./emo setup           # interactive config wizard
+          ./emo                 # terminal REPL
+          ./emo daemon          # start daemon + web UI on http://127.0.0.1:7778
           \`\`\`
+
+          ### Web UI
+          The binary includes the full web frontend.  Run \`emo daemon\` then open
+          **http://127.0.0.1:7778** in your browser.  Use \`--web-port 0\` to disable it.
           EOF
 
       - name: Create GitHub Release and upload assets

@@ -39,10 +39,12 @@ from __future__ import annotations
 
 import asyncio
 import dataclasses
+import http.server
 import logging
 import os
 import secrets
 import sqlite3
+import sys
 import threading
 import time
 import uuid
@@ -106,6 +108,34 @@ from emo.daemon.protocol import (
 )
 
 log = logging.getLogger(__name__)
+
+
+# ── Web UI static asset resolution ───────────────────────────────────────────
+
+def _find_web_root() -> Path | None:
+    """Locate the bundled web UI directory.
+
+    Search order:
+    1. ``_emo_web/`` next to the frozen PyInstaller binary (``sys._MEIPASS``).
+    2. ``web/build/`` relative to this source file (development / pip install).
+    3. Returns ``None`` if neither exists.
+    """
+    # PyInstaller bundles data files under sys._MEIPASS
+    meipass = getattr(sys, "_MEIPASS", None)
+    if meipass:
+        candidate = Path(meipass) / "_emo_web"
+        if candidate.is_dir():
+            return candidate
+
+    # Dev / pip install: look for web/build relative to this file's package root
+    here = Path(__file__).resolve().parent  # emo/daemon/
+    for steps in range(4):
+        candidate = here / "web" / "build"
+        if candidate.is_dir():
+            return candidate
+        here = here.parent
+
+    return None
 
 
 # ── Chat persistence (SQLite) ─────────────────────────────────────────────────
@@ -353,10 +383,13 @@ class DaemonServer:
         config: RootConfig,
         host: str = "127.0.0.1",
         port: int = 7777,
+        web_port: int = 7778,
     ) -> None:
         self.config = config
         self.host = host
         self.port = port
+        self.web_port = web_port
+        self._web_root = _find_web_root()
 
         # ── Pairing / authentication ──────────────────────────────────────────
         # The bearer token is a URL-safe random string stored in a file next to
@@ -974,17 +1007,68 @@ class DaemonServer:
 
     # ── Public entry point ────────────────────────────────────────────────────
 
+    def _start_web_server(self) -> None:
+        """Start a background HTTP server for the web UI (daemon thread)."""
+        if self.web_port == 0:
+            log.info("Web UI HTTP server disabled (--web-port 0).")
+            return
+        if self._web_root is None:
+            log.info("Web UI assets not found — HTTP server disabled.")
+            return
+
+        web_root = self._web_root
+        fallback = web_root / "index.html"
+
+        class _Handler(http.server.SimpleHTTPRequestHandler):
+            def __init__(self, *args: Any, **kwargs: Any) -> None:
+                super().__init__(*args, directory=str(web_root), **kwargs)
+
+            def do_GET(self) -> None:  # type: ignore[override]
+                # SPA fallback: serve index.html for unknown paths
+                resolved = web_root / self.path.lstrip("/").split("?")[0]
+                if not resolved.exists() and fallback.exists():
+                    self.path = "/index.html"
+                super().do_GET()
+
+            def log_message(self, fmt: str, *args: Any) -> None:  # type: ignore[override]
+                log.debug("web-ui %s", fmt % args)
+
+        try:
+            httpd = http.server.HTTPServer((self.host, self.web_port), _Handler)
+        except OSError as exc:
+            if exc.errno in (48, 98):  # EADDRINUSE: macOS=48, Linux=98
+                log.error(
+                    "Port %d already in use — web UI server not started. "
+                    "Kill the process using it or pass --web-port <other>.",
+                    self.web_port,
+                )
+                return
+            raise
+        thread = threading.Thread(target=httpd.serve_forever, daemon=True, name="emo-web-ui")
+        thread.start()
+        log.info("emo web UI listening on http://%s:%d", self.host, self.web_port)
+
     def serve(self) -> None:
-        """Start the WebSocket server and block until interrupted."""
+        """Start the WebSocket server (and optional web UI server) and block until interrupted."""
+        self._start_web_server()
         anyio.run(self._serve_async)
 
     async def _serve_async(self) -> None:
-        log.info("emo daemon listening on ws://%s:%d/ws", self.host, self.port)
-        async with websockets.asyncio.server.serve(
-            self._handle_connection,
-            self.host,
-            self.port,
-            ping_interval=30,
-            ping_timeout=10,
-        ) as server:
-            await server.serve_forever()
+        try:
+            async with websockets.asyncio.server.serve(
+                self._handle_connection,
+                self.host,
+                self.port,
+                ping_interval=30,
+                ping_timeout=10,
+            ) as server:
+                log.info("emo daemon listening on ws://%s:%d/ws", self.host, self.port)
+                await server.serve_forever()
+        except OSError as exc:
+            if exc.errno in (48, 98):  # EADDRINUSE: macOS=48, Linux=98
+                log.error(
+                    "Port %d already in use. Kill the process using it or pass --port <other>.",
+                    self.port,
+                )
+                return
+            raise
