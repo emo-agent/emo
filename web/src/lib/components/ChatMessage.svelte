@@ -1,5 +1,5 @@
 <script lang="ts">
-	import type { ChatMessage } from '$lib/stores/chat.svelte';
+	import type { StoredMessage } from '$lib/daemon/protocol';
 	import {
 		Message,
 		MessageContent,
@@ -7,13 +7,16 @@
 	} from '$lib/components/ai-elements/message/index';
 
 	interface Props {
-		message: ChatMessage;
+		message: StoredMessage;
 	}
 
 	let { message }: Props = $props();
 
-	function formatTime(date: Date): string {
-		return date.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
+	function formatTime(ts: number): string {
+		return new Date(ts * 1000).toLocaleTimeString(undefined, {
+			hour: '2-digit',
+			minute: '2-digit'
+		});
 	}
 </script>
 
@@ -26,6 +29,6 @@
 		{/if}
 	</MessageContent>
 	<span class="text-muted-foreground px-1 text-xs">
-		{formatTime(message.createdAt)}
+		{formatTime(message.created_at)}
 	</span>
 </Message>

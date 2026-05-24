@@ -150,6 +150,35 @@ def _candidate_paths(path: str | Path | None) -> list[Path]:
     return candidates
 
 
+def _migrate_v1(data: dict[str, Any]) -> dict[str, Any]:
+    """Migrate flat v0.1 config to nested v0.2 schema in-place (returns new dict)."""
+    if "model" not in data and "api_base" not in data:
+        return data  # already v0.2 or empty
+
+    data = data.copy()
+    agent_llm: dict[str, Any] = data.setdefault("agent", {}).setdefault("llm", {})  # type: ignore[union-attr]
+
+    for key in ("model", "api_base", "api_key"):
+        if key in data and not agent_llm.get(key):
+            agent_llm[key] = data.pop(key)
+
+    # Flat agent keys (temperature, max_iterations, context_window)
+    agent_section: dict[str, Any] = data["agent"]
+    for key in ("temperature", "max_iterations", "context_window"):
+        if key in data and not agent_llm.get(key):
+            agent_llm[key] = data.pop(key)
+        elif key in agent_section and not agent_llm.get(key):
+            agent_llm[key] = agent_section.pop(key)
+
+    # supervisor.enabled → router.enabled
+    sup = data.pop("supervisor", None)
+    if sup and isinstance(sup, dict) and "enabled" in sup:
+        data.setdefault("router", {})["enabled"] = sup["enabled"]  # type: ignore[index]
+
+    # skills_dir stays at root — already handled by _coerce_root via RootConfig
+    return data
+
+
 def load_config(path: str | Path | None = None) -> RootConfig:
     """Load and merge all config files, returning a typed :class:`RootConfig`.
 
@@ -171,7 +200,7 @@ def load_config(path: str | Path | None = None) -> RootConfig:
         if candidate.exists():
             with candidate.open() as f:
                 loaded = yaml.safe_load(f) or {}
-            found.append((candidate, loaded))
+            found.append((candidate, _migrate_v1(loaded)))
 
     # Merge lowest → highest priority
     merged: dict[str, Any] = DEFAULT_ROOT.copy()

@@ -591,6 +591,59 @@ def run_setup(console: Console) -> None:
     console.print()
 
 
+# ── Daemon entry ─────────────────────────────────────────────────────────────
+
+
+def _run_daemon(args: argparse.Namespace, console: Console) -> None:
+    """Start the emo WebSocket daemon."""
+    import logging
+
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s  %(levelname)-8s  %(name)s  %(message)s",
+        datefmt="%H:%M:%S",
+    )
+
+    config = load_config(getattr(args, "config", None))
+
+    if args.model:
+        config.agent.llm.model = args.model
+    if args.api_base:
+        config.agent.llm.api_base = args.api_base
+    if args.api_key:
+        config.agent.llm.api_key = args.api_key
+
+    try:
+        _ = config.litellm_model
+    except ConfigError as e:
+        console.print(
+            Panel(
+                str(e) + "\n\nRun [bold]emo setup[/bold] to configure interactively.",
+                title="[error]Configuration required[/error]",
+                border_style="red",
+            )
+        )
+        sys.exit(1)
+
+    from emo.daemon.server import DaemonServer
+
+    console.print(
+        Panel.fit(
+            f"[header]emo daemon[/header]  [muted]ws://{args.host}:{args.port}/ws[/muted]",
+            border_style="cyan",
+            padding=(0, 2),
+        )
+    )
+    console.print(f"[muted]model:[/muted] [info]{config.model}[/info]")
+    console.print("[muted]Press Ctrl+C to stop.[/muted]\n")
+
+    server = DaemonServer(config, host=args.host, port=args.port)
+    try:
+        server.serve()
+    except KeyboardInterrupt:
+        console.print("\n[muted]Daemon stopped.[/muted]")
+
+
 # ── Entry point ───────────────────────────────────────────────────────────────
 
 
@@ -600,6 +653,17 @@ def main() -> None:
 
     # `emo setup`
     subparsers.add_parser("setup", help="Interactive first-run setup wizard")
+
+    # `emo daemon`
+    daemon_parser = subparsers.add_parser(
+        "daemon", help="Start the background WebSocket daemon"
+    )
+    daemon_parser.add_argument(
+        "--host", default="127.0.0.1", help="Bind address (default: 127.0.0.1)"
+    )
+    daemon_parser.add_argument(
+        "--port", type=int, default=7777, help="Listen port (default: 7777)"
+    )
 
     # default (chat) args
     parser.add_argument("--config", help="Path to config file (.emo.yaml or config.yaml)", default=None)
@@ -631,6 +695,10 @@ def main() -> None:
 
     if args.command == "setup":
         run_setup(console)
+        return
+
+    if args.command == "daemon":
+        _run_daemon(args, console)
         return
 
     # Load config

@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { chat } from '$lib/stores/chat.svelte';
+	import { daemon } from '$lib/daemon/store.svelte';
 	import {
 		PromptInput,
 		PromptInputBody,
@@ -14,21 +14,17 @@
 	<PromptInput
 		onSubmit={(message: Message) => {
 			if (message.text.trim()) {
-				chat.sendMessage(message.text);
+				daemon.sendMessage(message.text);
 			}
 		}}
 		class="shadow-md"
 	>
 		<PromptInputBody>
-			<PromptInputTextarea
-				placeholder="Message emo…"
-			/>
+			<PromptInputTextarea placeholder="Message emo…" />
 		</PromptInputBody>
 		<PromptInputToolbar>
 			<div></div>
-			<PromptInputSubmit
-				status={chat.isLoading ? 'submitted' : 'ready'}
-			/>
+			<PromptInputSubmit status={daemon.isLoading ? 'submitted' : 'ready'} />
 		</PromptInputToolbar>
 	</PromptInput>
 </div>

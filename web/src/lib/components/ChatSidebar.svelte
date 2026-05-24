@@ -10,32 +10,42 @@
 		SidebarGroup,
 		SidebarGroupContent
 	} from '$lib/components/ui/sidebar/index';
-	import { chat } from '$lib/stores/chat.svelte';
-	import { Plus, Trash2, MessageSquare } from '@lucide/svelte';
+	import { daemon } from '$lib/daemon/store.svelte';
+	import { Plus, Trash2, MessageSquare, Wifi, WifiOff, Loader } from '@lucide/svelte';
 
-	function formatRelativeTime(date: Date): string {
-		const now = new Date();
-		const diffMs = now.getTime() - date.getTime();
-		const diffMins = Math.floor(diffMs / 60000);
-		const diffHours = Math.floor(diffMs / 3600000);
-		const diffDays = Math.floor(diffMs / 86400000);
-
-		if (diffMins < 1) return 'just now';
-		if (diffMins < 60) return `${diffMins}m ago`;
-		if (diffHours < 24) return `${diffHours}h ago`;
-		if (diffDays < 7) return `${diffDays}d ago`;
-		return date.toLocaleDateString();
+	function formatRelativeTime(ts: number): string {
+		const now = Date.now() / 1000;
+		const diff = now - ts;
+		const mins = Math.floor(diff / 60);
+		const hours = Math.floor(diff / 3600);
+		const days = Math.floor(diff / 86400);
+		if (mins < 1) return 'just now';
+		if (mins < 60) return `${mins}m ago`;
+		if (hours < 24) return `${hours}h ago`;
+		if (days < 7) return `${days}d ago`;
+		return new Date(ts * 1000).toLocaleDateString();
 	}
 </script>
 
 <Sidebar>
 	<SidebarHeader class="border-b px-4 py-3">
 		<div class="flex items-center justify-between">
-			<span class="text-foreground text-lg font-semibold tracking-tight">emo</span>
+			<div class="flex items-center gap-2">
+				<span class="text-foreground text-lg font-semibold tracking-tight">emo</span>
+				<!-- Connection indicator -->
+				{#if daemon.connectionState === 'connected'}
+					<Wifi class="text-muted-foreground h-3.5 w-3.5" />
+				{:else if daemon.connectionState === 'connecting'}
+					<Loader class="text-muted-foreground h-3.5 w-3.5 animate-spin" />
+				{:else}
+					<WifiOff class="text-destructive h-3.5 w-3.5" />
+				{/if}
+			</div>
 			<button
-				onclick={() => chat.newSession()}
+				onclick={() => daemon.newSession()}
 				class="hover:bg-muted text-muted-foreground hover:text-foreground flex h-7 w-7 items-center justify-center rounded-md transition-colors"
 				aria-label="New chat"
+				disabled={daemon.connectionState !== 'connected'}
 			>
 				<Plus class="h-4 w-4" />
 			</button>
@@ -46,11 +56,11 @@
 		<SidebarGroup>
 			<SidebarGroupContent>
 				<SidebarMenu>
-					{#each chat.sessions as session (session.id)}
+					{#each daemon.sessions as session (session.id)}
 						<SidebarMenuItem>
 							<SidebarMenuButton
-								onclick={() => chat.selectSession(session.id)}
-								isActive={chat.activeSessionId === session.id}
+								onclick={() => daemon.selectSession(session.id)}
+								isActive={daemon.activeSessionId === session.id}
 								class="group/item h-auto flex-col items-start gap-0.5 px-3 py-2"
 							>
 								<div class="flex w-full items-center gap-2">
@@ -61,7 +71,7 @@
 									<button
 										onclick={(e) => {
 											e.stopPropagation();
-											chat.deleteSession(session.id);
+											daemon.deleteSession(session.id);
 										}}
 										class="text-muted-foreground hover:text-destructive ml-auto hidden h-5 w-5 shrink-0 items-center justify-center rounded opacity-0 transition-opacity group-hover/item:flex group-hover/item:opacity-100"
 										aria-label="Delete chat"
@@ -70,15 +80,21 @@
 									</button>
 								</div>
 								<span class="text-muted-foreground pl-5.5 text-xs">
-									{formatRelativeTime(session.updatedAt)}
+									{formatRelativeTime(session.updated_at)}
 								</span>
 							</SidebarMenuButton>
 						</SidebarMenuItem>
 					{/each}
 
-					{#if chat.sessions.length === 0}
+					{#if daemon.sessions.length === 0}
 						<div class="text-muted-foreground px-3 py-6 text-center text-sm">
-							No conversations yet
+							{#if daemon.connectionState === 'connected'}
+								No conversations yet
+							{:else if daemon.connectionState === 'connecting'}
+								Connecting to daemon…
+							{:else}
+								Daemon offline
+							{/if}
 						</div>
 					{/if}
 				</SidebarMenu>

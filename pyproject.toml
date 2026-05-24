@@ -13,6 +13,8 @@ dependencies = [
     "prompt_toolkit>=3.0.43",
     "pyyaml>=6.0.1",
     "httpx>=0.27.0",
+    "websockets>=13.0",
+    "anyio>=4.4.0",
 ]
 
 [project.scripts]
@@ -22,6 +24,8 @@ emo = "emo.cli:main"
 dev = [
     "pytest>=8.0",
     "pytest-mock>=3.12",
+    "pytest-anyio>=0.0.0",
+    "anyio[trio]>=4.4.0",
 ]
 build = [
     "pyinstaller>=6.0",
