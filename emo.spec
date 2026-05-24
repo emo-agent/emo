@@ -4,21 +4,37 @@
 
 import sys
 from pathlib import Path
+from PyInstaller.utils.hooks import collect_all
+
+# collect_all bundles litellm's Python modules, binaries, AND data files,
+# preserving the exact package-relative paths that importlib.resources expects.
+_litellm_datas, _litellm_binaries, _litellm_hiddenimports = collect_all("litellm")
+_tiktoken_datas, _tiktoken_binaries, _tiktoken_hiddenimports = collect_all("tiktoken")
+# tiktoken_ext is a namespace package containing the actual encoding constructors
+# (e.g. cl100k_base). Without it tiktoken.get_encoding() raises "Unknown encoding".
+_tiktoken_ext_datas, _tiktoken_ext_binaries, _tiktoken_ext_hiddenimports = collect_all("tiktoken_ext")
 
 block_cipher = None
 
 a = Analysis(
-    # Entry point — same module that pyproject.toml [project.scripts] points at
     ['emo/cli.py'],
     pathex=['.'],
-    binaries=[],
+    binaries=[
+        *_litellm_binaries,
+        *_tiktoken_binaries,
+        *_tiktoken_ext_binaries,
+    ],
     datas=[
-        # Bundle the example config so first-run setup wizard can reference it
         ('config.yaml.example', '.'),
+        *_litellm_datas,
+        *_tiktoken_datas,
+        *_tiktoken_ext_datas,
     ],
     hiddenimports=[
-        # litellm uses lazy provider imports; name them explicitly so PyInstaller
-        # includes them even though they are not statically reachable
+        *_litellm_hiddenimports,
+        *_tiktoken_hiddenimports,
+        *_tiktoken_ext_hiddenimports,
+        # litellm lazy provider imports
         'litellm',
         'litellm.utils',
         'litellm.main',
@@ -29,7 +45,6 @@ a = Analysis(
         'litellm.llms.ollama',
         'litellm.llms.cohere',
         'litellm.llms.gemini',
-        'litellm.llms.huggingface_restapi',
         # httpx transports used at runtime
         'httpx._transports.default',
         'httpx._transports.asgi',
@@ -42,7 +57,7 @@ a = Analysis(
         # prompt_toolkit
         'prompt_toolkit.shortcuts',
         'prompt_toolkit.lexers',
-        # sqlite3 is stdlib but sometimes missed on Linux builds
+        # sqlite3
         'sqlite3',
         '_sqlite3',
     ],
