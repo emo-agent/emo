@@ -79,7 +79,7 @@ fi
 PLATFORM="${OS_KEY}-${ARCH_KEY}"
 
 # Determine if a prebuilt binary exists for this platform
-SUPPORTED_PLATFORMS="linux-x86_64 linux-aarch64 macos-x86_64 macos-arm64"
+SUPPORTED_PLATFORMS="linux-x86_64 linux-aarch64 macos-arm64"
 HAS_BINARY=0
 for p in $SUPPORTED_PLATFORMS; do
   if [[ "$p" == "$PLATFORM" ]]; then HAS_BINARY=1; break; fi

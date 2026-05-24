@@ -23,11 +23,10 @@ jobs:
   # ── Build matrix ─────────────────────────────────────────────────────────────
   #
   # Target matrix:
-  #   linux   x86_64   → ubuntu-latest  (x86_64)
+  #   linux   x86_64   → ubuntu-latest    (x86_64)
   #   linux   aarch64  → ubuntu-24.04-arm (GitHub-hosted ARM runner)
-  #   macos   x86_64   → macos-13       (last Intel macOS runner)
-  #   macos   arm64    → macos-latest   (Apple Silicon, M-series)
-  #   windows x86_64   → windows-latest
+  #   macos   arm64    → macos-latest     (Apple Silicon, M-series)
+  #   windows x86_64   → windows-2025
   #
   # Note: Linux aarch64 and Windows ARM64 native runners are available on
   # GitHub-hosted runners as of 2024. Adjust if your plan does not include them.
@@ -49,26 +48,21 @@ jobs:
             os:      linux
             arch:    aarch64
 
-          - target:  macos-x86_64
-            runner:  macos-13
-            os:      macos
-            arch:    x86_64
-
           - target:  macos-arm64
             runner:  macos-latest
             os:      macos
             arch:    arm64
 
           - target:  windows-x86_64
-            runner:  windows-latest
+            runner:  windows-2025
             os:      windows
             arch:    x86_64
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v4.2.2
 
       - name: Set up Python 3.11
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v5.6.0
         with:
           python-version: "3.11"
           cache: pip
@@ -108,7 +102,7 @@ jobs:
           fi
 
       - name: Upload artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v4.6.2
         with:
           name: emo-${{ matrix.target }}
           path: |
@@ -126,7 +120,7 @@ jobs:
       contents: write   # needed to create releases and upload assets
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v4.2.2
 
       - name: Resolve version tag
         id: version
@@ -138,7 +132,7 @@ jobs:
           fi
 
       - name: Download all build artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v4.3.0
         with:
           path: release-assets
           merge-multiple: true
@@ -166,7 +160,6 @@ jobs:
           |----------|-------------|---------|
           | Linux    | x86_64      | [emo-linux-x86_64.tar.gz](https://github.com/${{ github.repository }}/releases/download/${VERSION}/emo-linux-x86_64.tar.gz) |
           | Linux    | aarch64     | [emo-linux-aarch64.tar.gz](https://github.com/${{ github.repository }}/releases/download/${VERSION}/emo-linux-aarch64.tar.gz) |
-          | macOS    | x86_64      | [emo-macos-x86_64.tar.gz](https://github.com/${{ github.repository }}/releases/download/${VERSION}/emo-macos-x86_64.tar.gz) |
           | macOS    | arm64       | [emo-macos-arm64.tar.gz](https://github.com/${{ github.repository }}/releases/download/${VERSION}/emo-macos-arm64.tar.gz) |
           | Windows  | x86_64      | [emo-windows-x86_64.zip](https://github.com/${{ github.repository }}/releases/download/${VERSION}/emo-windows-x86_64.zip) |
 
