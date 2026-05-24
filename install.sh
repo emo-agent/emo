@@ -2,7 +2,7 @@
 # emo installer — standalone, curl-pipe friendly
 #
 # Quick install (latest release binary, no Python required):
-#   curl -fsSL https://raw.githubusercontent.com/javedh-dev/emo/main/install.sh | bash
+#   curl -fsSL https://raw.githubusercontent.com/emo-agent/emo/main/install.sh | bash
 #
 # With options via env vars (works with curl pipe):
 #   curl -fsSL .../install.sh | EMO_VERSION=v0.2.0 bash
@@ -17,7 +17,7 @@
 set -euo pipefail
 
 # ── Configuration ─────────────────────────────────────────────────────────────
-EMO_GITHUB_REPO="javedh-dev/emo"
+EMO_GITHUB_REPO="emo-agent/emo"
 EMO_BINARY_NAME="emo"
 
 # Defaults — all overridable via env vars or CLI flags
