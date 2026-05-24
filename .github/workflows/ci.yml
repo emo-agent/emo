@@ -33,12 +33,6 @@ jobs:
         run: pytest --tb=short -q
 
   # ── Installer smoke test (pip method) ───────────────────────────────────────
-  #
-  # Tests the pip-based install path end-to-end by:
-  #   1. Packing the checked-out source into a tarball (same layout GitHub produces).
-  #   2. Serving it on localhost:8765 via Python's http.server.
-  #   3. Patching the archive URL in install.sh to point at localhost.
-  #   4. Running the patched installer twice: normal invocation + curl-pipe simulation.
   install-script-pip:
     name: "Installer (pip) / ${{ matrix.os }}"
     runs-on: ${{ matrix.os }}
@@ -55,47 +49,35 @@ jobs:
         with:
           python-version: "3.11"
 
-      - name: Build local source tarball (mirrors GitHub archive layout)
+      - name: Build source tarball (GitHub archive layout)
         run: |
-          mkdir -p /tmp/emo-serve
-          # Create a subdirectory matching GitHub's archive layout (repo-branch/)
-          # then tar it — avoids --transform which is GNU tar only (breaks macOS BSD tar)
           STAGE="$(mktemp -d)"
           cp -r . "${STAGE}/emo-main"
-          rm -rf "${STAGE}/emo-main/.git" \
-                 "${STAGE}/emo-main/.venv" \
-                 "${STAGE}/emo-main/__pycache__"
+          rm -rf "${STAGE}/emo-main/.git" "${STAGE}/emo-main/.venv" "${STAGE}/emo-main/__pycache__"
+          mkdir -p /tmp/emo-serve
           tar -czf /tmp/emo-serve/main.tar.gz -C "$STAGE" emo-main
-          rm -rf "$STAGE"
 
       - name: Start local HTTP server
         run: |
           python3 -m http.server 8765 --directory /tmp/emo-serve &
           echo $! > /tmp/http-server.pid
-          for i in $(seq 1 20); do
-            curl -sf http://localhost:8765/main.tar.gz -o /dev/null && break
-            sleep 0.5
-          done
+          for i in $(seq 1 20); do curl -sf http://localhost:8765/main.tar.gz -o /dev/null && break || sleep 0.5; done
 
-      - name: Patch install.sh — redirect archive URL to localhost
+      - name: Run pip installer
         run: |
-          # Rewrite both archive URL patterns to point at the local server.
-          # Use a fixed placeholder string (no shell vars in sed pattern).
-          sed \
-            -e 's|https://github.com/[^/]*/[^/]*/archive/refs/heads/main.tar.gz|http://localhost:8765/main.tar.gz|g' \
-            -e 's|https://github.com/[^/]*/[^/]*/archive/refs/tags/[^.]*\.tar\.gz|http://localhost:8765/main.tar.gz|g' \
-            install.sh > /tmp/install-patched.sh
-
-      - name: Run pip installer (non-interactive, custom prefix)
-        run: bash /tmp/install-patched.sh --method pip --prefix /tmp/emo-pip
+          EMO_ARCHIVE_URL=http://localhost:8765/main.tar.gz \
+            bash install.sh --method pip --prefix /tmp/emo-pip
 
       - name: Verify emo binary
         run: /tmp/emo-pip/bin/emo --help
 
-      - name: Simulate curl-pipe install (non-interactive)
+      - name: Simulate curl-pipe install
         run: |
           rm -rf /tmp/emo-pip2
-          cat /tmp/install-patched.sh | EMO_METHOD=pip EMO_PREFIX=/tmp/emo-pip2 bash
+          EMO_ARCHIVE_URL=http://localhost:8765/main.tar.gz \
+          EMO_METHOD=pip \
+          EMO_PREFIX=/tmp/emo-pip2 \
+            bash install.sh
           /tmp/emo-pip2/bin/emo --help
 
       - name: Stop HTTP server

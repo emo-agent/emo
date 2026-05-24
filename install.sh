@@ -170,8 +170,11 @@ install_pip() {
 
   need tar
 
-  # Determine install source: specific tag tarball or latest branch tarball
-  if [[ "$VERSION" == "latest" ]]; then
+  # Determine install source — EMO_ARCHIVE_URL can override for testing
+  if [[ -n "${EMO_ARCHIVE_URL:-}" ]]; then
+    _ARCHIVE="$EMO_ARCHIVE_URL"
+    info "Downloading emo source ..."
+  elif [[ "$VERSION" == "latest" ]]; then
     _ARCHIVE="https://github.com/${EMO_GITHUB_REPO}/archive/refs/heads/main.tar.gz"
     info "Downloading emo (latest source) ..."
   else
