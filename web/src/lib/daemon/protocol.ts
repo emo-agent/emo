@@ -139,7 +139,11 @@ export interface SessionDeletedMsg {
 }
 
 export type ConfigDataMsg = { type: 'config_data'; data: Record<string, unknown> };
-export type AgentEntry = { name: string; config: Record<string, unknown>; source: 'user' | 'builtin' };
+export type AgentEntry = {
+	name: string;
+	config: Record<string, unknown>;
+	source: 'user' | 'builtin';
+};
 export type AgentsDataMsg = { type: 'agents_data'; agents: AgentEntry[] };
 export type AgentDataMsg = { type: 'agent_data'; name: string; config: Record<string, unknown> };
 export type SkillEntry = { name: string; summary: string };

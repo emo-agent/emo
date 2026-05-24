@@ -12,8 +12,8 @@ const config = {
 			pages: 'build',
 			assets: 'build',
 			fallback: 'index.html', // SPA fallback for client-side routing
-			precompress: false,
-		}),
+			precompress: false
+		})
 	}
 };
 

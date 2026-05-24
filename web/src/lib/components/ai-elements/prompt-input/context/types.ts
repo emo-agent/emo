@@ -1,6 +1,6 @@
-import type { FileUIPart } from "ai";
+import type { FileUIPart } from 'ai';
 
-export type PromptInputUploadStatus = "uploading" | "uploaded" | "error";
+export type PromptInputUploadStatus = 'uploading' | 'uploaded' | 'error';
 
 export interface PromptInputAttachment {
 	id: string;
@@ -21,6 +21,6 @@ export interface Message {
 	attachments: PromptInputAttachment[];
 }
 
-export type ChatStatus = "submitted" | "streaming" | "error" | "ready";
+export type ChatStatus = 'submitted' | 'streaming' | 'error' | 'ready';
 
 export type PromptInputMessage = Message;

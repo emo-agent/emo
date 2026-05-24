@@ -1,12 +1,12 @@
 <script lang="ts">
-	import { cn } from "$lib/utils";
-	import { watch } from "runed";
-	import { getAttachmentsContext } from "../context/attachments.svelte.js";
-	import type { PromptInputAttachment } from "../context/types.js";
+	import { cn } from '$lib/utils';
+	import { watch } from 'runed';
+	import { getAttachmentsContext } from '../context/attachments.svelte.js';
+	import type { PromptInputAttachment } from '../context/types.js';
 
 	interface Props {
 		class?: string;
-		children?: import("svelte").Snippet<[PromptInputAttachment]>;
+		children?: import('svelte').Snippet<[PromptInputAttachment]>;
 	}
 
 	let { class: className, children, ...props }: Props = $props();
@@ -18,13 +18,13 @@
 	// Separate files and images for grouped rendering
 	let nonImageFiles = $derived(
 		attachmentsContext.attachments.filter(
-			(f) => !(f.mediaType?.startsWith("image/") && (f.previewUrl ?? f.remoteUrl))
+			(f) => !(f.mediaType?.startsWith('image/') && (f.previewUrl ?? f.remoteUrl))
 		)
 	);
 
 	let imageFiles = $derived(
 		attachmentsContext.attachments.filter(
-			(f) => f.mediaType?.startsWith("image/") && (f.previewUrl ?? f.remoteUrl)
+			(f) => f.mediaType?.startsWith('image/') && (f.previewUrl ?? f.remoteUrl)
 		)
 	);
 
@@ -54,7 +54,7 @@
 
 <div
 	aria-live="polite"
-	class={cn("overflow-hidden transition-[height] duration-200 ease-out", className)}
+	class={cn('overflow-hidden transition-[height] duration-200 ease-out', className)}
 	style:height="{computedHeight}px"
 	{...props}
 >

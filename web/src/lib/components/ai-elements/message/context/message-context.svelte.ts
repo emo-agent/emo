@@ -1,6 +1,6 @@
-import { getContext, setContext } from "svelte";
+import { getContext, setContext } from 'svelte';
 
-export type MessageRole = "user" | "assistant" | "system" | "function" | "data" | "tool";
+export type MessageRole = 'user' | 'assistant' | 'system' | 'function' | 'data' | 'tool';
 
 export type MessageVersion = {
 	id: string;
@@ -8,13 +8,13 @@ export type MessageVersion = {
 };
 
 export type MessageAttachmentData = {
-	type: "file";
+	type: 'file';
 	filename?: string;
 	mediaType?: string;
 	url?: string;
 };
 
-const MESSAGE_BRANCH_CONTEXT_KEY = Symbol("message-branch-context");
+const MESSAGE_BRANCH_CONTEXT_KEY = Symbol('message-branch-context');
 
 export class MessageBranchController {
 	currentBranch = $state(0);
@@ -47,8 +47,7 @@ export class MessageBranchController {
 			return;
 		}
 
-		this.currentBranch =
-			this.currentBranch > 0 ? this.currentBranch - 1 : this.totalBranches - 1;
+		this.currentBranch = this.currentBranch > 0 ? this.currentBranch - 1 : this.totalBranches - 1;
 	}
 
 	goToNext() {
@@ -56,8 +55,7 @@ export class MessageBranchController {
 			return;
 		}
 
-		this.currentBranch =
-			this.currentBranch < this.totalBranches - 1 ? this.currentBranch + 1 : 0;
+		this.currentBranch = this.currentBranch < this.totalBranches - 1 ? this.currentBranch + 1 : 0;
 	}
 }
 
@@ -69,7 +67,7 @@ export function getMessageBranchContext(): MessageBranchController {
 	const context = getContext<MessageBranchController>(MESSAGE_BRANCH_CONTEXT_KEY);
 
 	if (!context) {
-		throw new Error("MessageBranch components must be used within MessageBranch");
+		throw new Error('MessageBranch components must be used within MessageBranch');
 	}
 
 	return context;

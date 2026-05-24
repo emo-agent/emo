@@ -1,6 +1,22 @@
 <script lang="ts">
 	import { daemon } from '$lib/daemon/store.svelte';
-	import { Cpu, GitFork, Database, Sparkles, BrainCircuit, Globe, Bot, Link, KeyRound, Thermometer, Hash, RefreshCw, ScanText, Users, HardDrive } from '@lucide/svelte';
+	import {
+		Cpu,
+		GitFork,
+		Database,
+		Sparkles,
+		BrainCircuit,
+		Globe,
+		Bot,
+		Link,
+		KeyRound,
+		Thermometer,
+		Hash,
+		RefreshCw,
+		ScanText,
+		Users,
+		HardDrive
+	} from '@lucide/svelte';
 
 	// ── Agent LLM ──────────────────────────────────────────────────────────────
 	let agentModel = $state('');
@@ -117,23 +133,27 @@
 		setTimeout(() => (saved = false), 2000);
 	}
 
-	const iconClass = 'absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none';
+	const iconClass =
+		'absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none';
 	const inputClass =
 		'h-9 rounded-md border bg-background pl-9 pr-3 text-sm outline-none focus:ring-1 focus:ring-ring w-full';
 	const labelClass = 'text-xs font-medium text-muted-foreground';
 </script>
 
-<div class="max-w-2xl mx-auto py-8 px-6 flex flex-col gap-8">
-
+<div class="mx-auto flex max-w-2xl flex-col gap-8 px-6 py-8">
 	<!-- Agent LLM -->
-	<div class="rounded-xl border bg-card p-6 flex flex-col gap-5">
-		<div class="flex items-start gap-3 mb-2">
-			<div class="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+	<div class="flex flex-col gap-5 rounded-xl border bg-card p-6">
+		<div class="mb-2 flex items-start gap-3">
+			<div
+				class="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary"
+			>
 				<Cpu class="h-4 w-4" />
 			</div>
 			<div>
 				<h3 class="text-sm font-semibold text-foreground">Agent LLM</h3>
-				<p class="text-xs text-muted-foreground mt-0.5">Configure the default language model for all agents</p>
+				<p class="mt-0.5 text-xs text-muted-foreground">
+					Configure the default language model for all agents
+				</p>
 			</div>
 		</div>
 
@@ -142,21 +162,39 @@
 				<label class={labelClass} for="cfg-model">Model</label>
 				<div class="relative">
 					<Bot class={iconClass} />
-					<input id="cfg-model" type="text" bind:value={agentModel} placeholder="openai/gpt-4o" class={inputClass} />
+					<input
+						id="cfg-model"
+						type="text"
+						bind:value={agentModel}
+						placeholder="openai/gpt-4o"
+						class={inputClass}
+					/>
 				</div>
 			</div>
 			<div class="flex flex-col gap-1.5">
 				<label class={labelClass} for="cfg-api-base">API Base</label>
 				<div class="relative">
 					<Link class={iconClass} />
-					<input id="cfg-api-base" type="text" bind:value={agentApiBase} placeholder="https://openrouter.ai/api/v1" class={inputClass} />
+					<input
+						id="cfg-api-base"
+						type="text"
+						bind:value={agentApiBase}
+						placeholder="https://openrouter.ai/api/v1"
+						class={inputClass}
+					/>
 				</div>
 			</div>
 			<div class="flex flex-col gap-1.5">
 				<label class={labelClass} for="cfg-api-key">API Key</label>
 				<div class="relative">
 					<KeyRound class={iconClass} />
-					<input id="cfg-api-key" type="password" bind:value={agentApiKey} placeholder="sk-…" class={inputClass} />
+					<input
+						id="cfg-api-key"
+						type="password"
+						bind:value={agentApiKey}
+						placeholder="sk-…"
+						class={inputClass}
+					/>
 				</div>
 			</div>
 			<div class="grid grid-cols-2 gap-4">
@@ -164,14 +202,28 @@
 					<label class={labelClass} for="cfg-temp">Temperature</label>
 					<div class="relative">
 						<Thermometer class={iconClass} />
-						<input id="cfg-temp" type="number" min="0" max="2" step="0.05" bind:value={agentTemperature} class={inputClass} />
+						<input
+							id="cfg-temp"
+							type="number"
+							min="0"
+							max="2"
+							step="0.05"
+							bind:value={agentTemperature}
+							class={inputClass}
+						/>
 					</div>
 				</div>
 				<div class="flex flex-col gap-1.5">
 					<label class={labelClass} for="cfg-maxtok">Max Tokens</label>
 					<div class="relative">
 						<Hash class={iconClass} />
-						<input id="cfg-maxtok" type="number" bind:value={agentMaxTokens} placeholder="(none)" class={inputClass} />
+						<input
+							id="cfg-maxtok"
+							type="number"
+							bind:value={agentMaxTokens}
+							placeholder="(none)"
+							class={inputClass}
+						/>
 					</div>
 				</div>
 			</div>
@@ -180,7 +232,12 @@
 					<label class={labelClass} for="cfg-maxiter">Max Iterations</label>
 					<div class="relative">
 						<RefreshCw class={iconClass} />
-						<input id="cfg-maxiter" type="number" bind:value={agentMaxIterations} class={inputClass} />
+						<input
+							id="cfg-maxiter"
+							type="number"
+							bind:value={agentMaxIterations}
+							class={inputClass}
+						/>
 					</div>
 				</div>
 				<div class="flex flex-col gap-1.5">
@@ -195,14 +252,18 @@
 	</div>
 
 	<!-- Router -->
-	<div class="rounded-xl border bg-card p-6 flex flex-col gap-5">
-		<div class="flex items-start gap-3 mb-2">
-			<div class="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+	<div class="flex flex-col gap-5 rounded-xl border bg-card p-6">
+		<div class="mb-2 flex items-start gap-3">
+			<div
+				class="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary"
+			>
 				<GitFork class="h-4 w-4" />
 			</div>
 			<div>
 				<h3 class="text-sm font-semibold text-foreground">Router</h3>
-				<p class="text-xs text-muted-foreground mt-0.5">Route messages to specialist agents automatically</p>
+				<p class="mt-0.5 text-xs text-muted-foreground">
+					Route messages to specialist agents automatically
+				</p>
 			</div>
 		</div>
 
@@ -215,7 +276,11 @@
 						<p class="text-xs text-muted-foreground">Route messages to specialist agents</p>
 					</div>
 				</div>
-				<input type="checkbox" bind:checked={routerEnabled} class="h-4 w-4 rounded border cursor-pointer accent-primary" />
+				<input
+					type="checkbox"
+					bind:checked={routerEnabled}
+					class="h-4 w-4 cursor-pointer rounded border accent-primary"
+				/>
 			</div>
 
 			<div class="grid grid-cols-2 gap-4">
@@ -223,33 +288,61 @@
 					<label class={labelClass} for="cfg-rdefault">Default Agent</label>
 					<div class="relative">
 						<Bot class={iconClass} />
-						<input id="cfg-rdefault" type="text" bind:value={routerDefault} placeholder="general" class={inputClass} />
+						<input
+							id="cfg-rdefault"
+							type="text"
+							bind:value={routerDefault}
+							placeholder="general"
+							class={inputClass}
+						/>
 					</div>
 				</div>
 				<div class="flex flex-col gap-1.5">
 					<label class={labelClass} for="cfg-ragents">Agents (comma-separated)</label>
 					<div class="relative">
 						<Users class={iconClass} />
-						<input id="cfg-ragents" type="text" bind:value={routerAgents} placeholder="general, code, research" class={inputClass} />
+						<input
+							id="cfg-ragents"
+							type="text"
+							bind:value={routerAgents}
+							placeholder="general, code, research"
+							class={inputClass}
+						/>
 					</div>
 				</div>
 			</div>
 
 			<div class="rounded-lg border bg-muted/30 px-4 py-3">
-				<p class="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-3">Router LLM</p>
+				<p class="mb-3 text-xs font-semibold tracking-wide text-muted-foreground uppercase">
+					Router LLM
+				</p>
 				<div class="grid grid-cols-2 gap-4">
 					<div class="flex flex-col gap-1.5">
 						<label class={labelClass} for="cfg-rtemp">Temperature</label>
 						<div class="relative">
 							<Thermometer class={iconClass} />
-							<input id="cfg-rtemp" type="number" min="0" max="2" step="0.05" bind:value={routerTemperature} class={inputClass} />
+							<input
+								id="cfg-rtemp"
+								type="number"
+								min="0"
+								max="2"
+								step="0.05"
+								bind:value={routerTemperature}
+								class={inputClass}
+							/>
 						</div>
 					</div>
 					<div class="flex flex-col gap-1.5">
 						<label class={labelClass} for="cfg-rmaxtok">Max Tokens</label>
 						<div class="relative">
 							<Hash class={iconClass} />
-							<input id="cfg-rmaxtok" type="number" bind:value={routerMaxTokens} placeholder="(none)" class={inputClass} />
+							<input
+								id="cfg-rmaxtok"
+								type="number"
+								bind:value={routerMaxTokens}
+								placeholder="(none)"
+								class={inputClass}
+							/>
 						</div>
 					</div>
 				</div>
@@ -258,14 +351,16 @@
 	</div>
 
 	<!-- Memory -->
-	<div class="rounded-xl border bg-card p-6 flex flex-col gap-5">
-		<div class="flex items-start gap-3 mb-2">
-			<div class="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+	<div class="flex flex-col gap-5 rounded-xl border bg-card p-6">
+		<div class="mb-2 flex items-start gap-3">
+			<div
+				class="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary"
+			>
 				<Database class="h-4 w-4" />
 			</div>
 			<div>
 				<h3 class="text-sm font-semibold text-foreground">Memory</h3>
-				<p class="text-xs text-muted-foreground mt-0.5">Persistent memory storage configuration</p>
+				<p class="mt-0.5 text-xs text-muted-foreground">Persistent memory storage configuration</p>
 			</div>
 		</div>
 
@@ -274,7 +369,13 @@
 				<label class={labelClass} for="cfg-dbpath">DB Path</label>
 				<div class="relative">
 					<HardDrive class={iconClass} />
-					<input id="cfg-dbpath" type="text" bind:value={memoryDbPath} placeholder="~/.emo/memory.db" class={inputClass} />
+					<input
+						id="cfg-dbpath"
+						type="text"
+						bind:value={memoryDbPath}
+						placeholder="~/.emo/memory.db"
+						class={inputClass}
+					/>
 				</div>
 			</div>
 			<div class="grid grid-cols-2 gap-4">
@@ -289,7 +390,12 @@
 					<label class={labelClass} for="cfg-sumafter">Summarize After</label>
 					<div class="relative">
 						<Hash class={iconClass} />
-						<input id="cfg-sumafter" type="number" bind:value={memorySummarizeAfter} class={inputClass} />
+						<input
+							id="cfg-sumafter"
+							type="number"
+							bind:value={memorySummarizeAfter}
+							class={inputClass}
+						/>
 					</div>
 				</div>
 			</div>
@@ -297,14 +403,16 @@
 	</div>
 
 	<!-- Features -->
-	<div class="rounded-xl border bg-card p-6 flex flex-col gap-5">
-		<div class="flex items-start gap-3 mb-2">
-			<div class="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+	<div class="flex flex-col gap-5 rounded-xl border bg-card p-6">
+		<div class="mb-2 flex items-start gap-3">
+			<div
+				class="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary"
+			>
 				<Sparkles class="h-4 w-4" />
 			</div>
 			<div>
 				<h3 class="text-sm font-semibold text-foreground">Features</h3>
-				<p class="text-xs text-muted-foreground mt-0.5">Enable or disable optional capabilities</p>
+				<p class="mt-0.5 text-xs text-muted-foreground">Enable or disable optional capabilities</p>
 			</div>
 		</div>
 
@@ -317,7 +425,11 @@
 						<p class="text-xs text-muted-foreground">Route messages to specialist agents</p>
 					</div>
 				</div>
-				<input type="checkbox" bind:checked={featRouting} class="h-4 w-4 rounded border cursor-pointer accent-primary" />
+				<input
+					type="checkbox"
+					bind:checked={featRouting}
+					class="h-4 w-4 cursor-pointer rounded border accent-primary"
+				/>
 			</div>
 
 			<div class="flex items-center justify-between rounded-lg border bg-background px-4 py-3">
@@ -328,7 +440,11 @@
 						<p class="text-xs text-muted-foreground">Persist facts across sessions</p>
 					</div>
 				</div>
-				<input type="checkbox" bind:checked={featMemory} class="h-4 w-4 rounded border cursor-pointer accent-primary" />
+				<input
+					type="checkbox"
+					bind:checked={featMemory}
+					class="h-4 w-4 cursor-pointer rounded border accent-primary"
+				/>
 			</div>
 
 			<div class="flex items-center justify-between rounded-lg border bg-background px-4 py-3">
@@ -339,7 +455,11 @@
 						<p class="text-xs text-muted-foreground">Enable web search tool</p>
 					</div>
 				</div>
-				<input type="checkbox" bind:checked={featWeb} class="h-4 w-4 rounded border cursor-pointer accent-primary" />
+				<input
+					type="checkbox"
+					bind:checked={featWeb}
+					class="h-4 w-4 cursor-pointer rounded border accent-primary"
+				/>
 			</div>
 		</div>
 	</div>
@@ -348,7 +468,7 @@
 	<div class="flex items-center gap-3 pt-2">
 		<button
 			onclick={save}
-			class="rounded-md bg-primary px-6 py-2 text-sm font-medium text-primary-foreground hover:opacity-90 transition-opacity"
+			class="rounded-md bg-primary px-6 py-2 text-sm font-medium text-primary-foreground transition-opacity hover:opacity-90"
 		>
 			{saved ? '✓ Saved' : 'Save changes'}
 		</button>

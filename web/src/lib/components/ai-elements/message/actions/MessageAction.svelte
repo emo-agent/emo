@@ -1,10 +1,10 @@
 <script lang="ts">
-	import { Button, type ButtonProps } from "$lib/components/ui/button/index.js";
-	import * as Tooltip from "$lib/components/ui/tooltip/index.js";
-	import { cn } from "$lib/utils";
-	import type { Snippet } from "svelte";
+	import { Button, type ButtonProps } from '$lib/components/ui/button/index.js';
+	import * as Tooltip from '$lib/components/ui/tooltip/index.js';
+	import { cn } from '$lib/utils';
+	import type { Snippet } from 'svelte';
 
-	type MessageButtonProps = Omit<ButtonProps, "children" | "type" | "href">;
+	type MessageButtonProps = Omit<ButtonProps, 'children' | 'type' | 'href'>;
 
 	type Props = MessageButtonProps & {
 		tooltip?: string;
@@ -16,8 +16,8 @@
 	let {
 		tooltip,
 		label,
-		variant = "ghost",
-		size = "icon",
+		variant = 'ghost',
+		size = 'icon',
 		class: className,
 		children,
 		...restProps
@@ -37,7 +37,7 @@
 						{size}
 						type="button"
 						{variant}
-						class={cn("size-7", className)}
+						class={cn('size-7', className)}
 					>
 						{@render children?.()}
 						{#if srOnlyLabel}
@@ -52,7 +52,7 @@
 		</Tooltip.Root>
 	</Tooltip.Provider>
 {:else}
-	<Button {...restProps} {size} type="button" {variant} class={cn("size-7", className)}>
+	<Button {...restProps} {size} type="button" {variant} class={cn('size-7', className)}>
 		{@render children?.()}
 		{#if srOnlyLabel}
 			<span class="sr-only">{srOnlyLabel}</span>

@@ -1,11 +1,11 @@
 <script lang="ts">
-	import { cn } from "$lib/utils";
+	import { cn } from '$lib/utils';
 	import {
 		MessageBranchController,
-		setMessageBranchContext,
-	} from "../context/message-context.svelte.js";
-	import type { Snippet } from "svelte";
-	import type { HTMLAttributes } from "svelte/elements";
+		setMessageBranchContext
+	} from '../context/message-context.svelte.js';
+	import type { Snippet } from 'svelte';
+	import type { HTMLAttributes } from 'svelte/elements';
 
 	interface Props extends HTMLAttributes<HTMLDivElement> {
 		defaultBranch?: number;
@@ -51,6 +51,6 @@
 	});
 </script>
 
-<div class={cn("grid w-full gap-2 [&>div]:pb-0", className)} {...restProps}>
+<div class={cn('grid w-full gap-2 [&>div]:pb-0', className)} {...restProps}>
 	{@render children()}
 </div>

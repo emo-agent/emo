@@ -1,7 +1,7 @@
 <script lang="ts">
-	import { cn } from "$lib/utils";
-	import type { Snippet } from "svelte";
-	import type { HTMLAttributes } from "svelte/elements";
+	import { cn } from '$lib/utils';
+	import type { Snippet } from 'svelte';
+	import type { HTMLAttributes } from 'svelte/elements';
 
 	interface Props extends HTMLAttributes<HTMLDivElement> {
 		class?: string;
@@ -14,7 +14,7 @@
 </script>
 
 {#if hasChildren}
-	<div class={cn("ml-auto flex w-fit flex-wrap items-start gap-2", className)} {...restProps}>
+	<div class={cn('ml-auto flex w-fit flex-wrap items-start gap-2', className)} {...restProps}>
 		{@render children?.()}
 	</div>
 {/if}

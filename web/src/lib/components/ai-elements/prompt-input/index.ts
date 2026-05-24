@@ -1,20 +1,20 @@
-import Root from "./core/Root.svelte";
-import Provider from "./core/Provider.svelte";
-import Header from "./layout/Header.svelte";
-import Body from "./layout/Body.svelte";
-import Toolbar from "./layout/Toolbar.svelte";
-import Tools from "./layout/Tools.svelte";
-import Button from "./controls/Button.svelte";
-import Textarea from "./controls/Textarea.svelte";
-import Submit from "./controls/Submit.svelte";
-import Attachment from "./attachments/Attachment.svelte";
-import AttachmentImagePreview from "./attachments/AttachmentImagePreview.svelte";
-import Attachments from "./attachments/Attachments.svelte";
-import ActionMenu from "./action-menu/ActionMenu.svelte";
-import ActionMenuTrigger from "./action-menu/ActionMenuTrigger.svelte";
-import ActionMenuContent from "./action-menu/ActionMenuContent.svelte";
-import ActionMenuItem from "./action-menu/ActionMenuItem.svelte";
-import ActionAddAttachments from "./action-menu/ActionAddAttachments.svelte";
+import Root from './core/Root.svelte';
+import Provider from './core/Provider.svelte';
+import Header from './layout/Header.svelte';
+import Body from './layout/Body.svelte';
+import Toolbar from './layout/Toolbar.svelte';
+import Tools from './layout/Tools.svelte';
+import Button from './controls/Button.svelte';
+import Textarea from './controls/Textarea.svelte';
+import Submit from './controls/Submit.svelte';
+import Attachment from './attachments/Attachment.svelte';
+import AttachmentImagePreview from './attachments/AttachmentImagePreview.svelte';
+import Attachments from './attachments/Attachments.svelte';
+import ActionMenu from './action-menu/ActionMenu.svelte';
+import ActionMenuTrigger from './action-menu/ActionMenuTrigger.svelte';
+import ActionMenuContent from './action-menu/ActionMenuContent.svelte';
+import ActionMenuItem from './action-menu/ActionMenuItem.svelte';
+import ActionAddAttachments from './action-menu/ActionAddAttachments.svelte';
 
 export {
 	Root,
@@ -51,14 +51,14 @@ export {
 	ActionMenuTrigger as PromptInputActionMenuTrigger,
 	ActionMenuContent as PromptInputActionMenuContent,
 	ActionMenuItem as PromptInputActionMenuItem,
-	ActionAddAttachments as PromptInputActionAddAttachments,
+	ActionAddAttachments as PromptInputActionAddAttachments
 };
 
 export {
 	AttachmentsContext,
 	getAttachmentsContext,
-	setAttachmentsContext,
-} from "./context/attachments.svelte.js";
+	setAttachmentsContext
+} from './context/attachments.svelte.js';
 
 export {
 	Controller,
@@ -67,8 +67,8 @@ export {
 	TextController as TextInputController,
 	getPromptInputProvider,
 	usePromptInput,
-	setPromptInputProvider,
-} from "./context/provider.svelte.js";
+	setPromptInputProvider
+} from './context/provider.svelte.js';
 
 export type {
 	PromptInputAttachment as PromptInputAttachmentData,
@@ -76,7 +76,7 @@ export type {
 	FileWithId,
 	Message,
 	Message as PromptInputMessage,
-	ChatStatus,
-} from "./context/types.js";
+	ChatStatus
+} from './context/types.js';
 
-export type { FileUIPart } from "ai";
+export type { FileUIPart } from 'ai';

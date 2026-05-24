@@ -23,18 +23,22 @@ pnpm format       # prettier write
 ## Runes mode
 
 Runes mode is **forced project-wide** in `svelte.config.js`:
+
 ```js
-runes: ({ filename }) => filename.split(/[/\\]/).includes('node_modules') ? undefined : true
+runes: ({ filename }) => (filename.split(/[/\\]/).includes('node_modules') ? undefined : true);
 ```
+
 Always use Svelte 5 runes syntax (`$state`, `$derived`, `$effect`, `$props`, etc.) — never legacy `$:`, `export let`, or `createEventDispatcher`.
 
 ## Adding UI components
 
 shadcn-svelte is the source for all base UI components:
+
 ```bash
 pnpm dlx shadcn-svelte@latest add <component>
 # e.g. pnpm dlx shadcn-svelte@latest add button dialog
 ```
+
 Components land in `src/lib/components/ui/`. Use the shadcn MCP server when available to find component names and APIs.
 
 ## AI UI elements
@@ -44,13 +48,13 @@ Docs: https://svelte-ai-elements.vercel.app/docs/installation
 
 ## Path aliases
 
-| Alias | Resolves to |
-|---|---|
-| `$lib` | `src/lib` |
-| `$lib/components` | `src/lib/components` |
-| `$lib/components/ui` | shadcn components |
-| `$lib/hooks` | `src/lib/hooks` |
-| `$lib/utils` | `src/lib/utils.ts` |
+| Alias                | Resolves to          |
+| -------------------- | -------------------- |
+| `$lib`               | `src/lib`            |
+| `$lib/components`    | `src/lib/components` |
+| `$lib/components/ui` | shadcn components    |
+| `$lib/hooks`         | `src/lib/hooks`      |
+| `$lib/utils`         | `src/lib/utils.ts`   |
 
 ## Global CSS
 

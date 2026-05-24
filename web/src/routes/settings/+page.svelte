@@ -11,7 +11,11 @@
 		return t === 'config' || t === 'agents' || t === 'skills' || t === 'mcps';
 	}
 
-	const currentTab = $derived(validTab(page.url.searchParams.get('tab')) ? page.url.searchParams.get('tab') as Tab : 'config' as Tab);
+	const currentTab = $derived(
+		validTab(page.url.searchParams.get('tab'))
+			? (page.url.searchParams.get('tab') as Tab)
+			: ('config' as Tab)
+	);
 </script>
 
 <div class="flex h-svh flex-col overflow-hidden">

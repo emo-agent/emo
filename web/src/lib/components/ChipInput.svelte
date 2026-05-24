@@ -61,18 +61,21 @@
 	<!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
 	<div
 		role="group"
-		class="flex min-h-9 flex-wrap items-center gap-1.5 rounded-md border border-input bg-background px-2.5 py-1 cursor-text"
+		class="flex min-h-9 cursor-text flex-wrap items-center gap-1.5 rounded-md border border-input bg-background px-2.5 py-1"
 		onkeydown={() => {}}
 		onclick={() => inputEl?.focus()}
 	>
 		{#each values as value (value)}
-			<span class={cn(badgeVariants({ variant: 'secondary' }), 'gap-1.5 pr-1 h-6')}>
+			<span class={cn(badgeVariants({ variant: 'secondary' }), 'h-6 gap-1.5 pr-1')}>
 				{value}
 				<button
 					type="button"
-					onmousedown={(e) => { e.preventDefault(); removeValue(value); }}
+					onmousedown={(e) => {
+						e.preventDefault();
+						removeValue(value);
+					}}
 					aria-label="Remove {value}"
-					class="flex items-center justify-center w-3.5 h-3.5 rounded-full bg-muted-foreground/20 text-muted-foreground hover:bg-destructive hover:text-white transition-colors cursor-pointer"
+					class="flex h-3.5 w-3.5 cursor-pointer items-center justify-center rounded-full bg-muted-foreground/20 text-muted-foreground transition-colors hover:bg-destructive hover:text-white"
 				>
 					<X size={8} strokeWidth={2.5} />
 				</button>
@@ -85,7 +88,7 @@
 				bind:this={inputEl}
 				bind:value={inputValue}
 				placeholder={values.length === 0 ? placeholder : ''}
-				class="flex-1 min-w-16 bg-transparent text-sm outline-none ring-0 border-0 shadow-none placeholder:text-muted-foreground py-0 focus:outline-none focus:ring-0 focus:border-0"
+				class="min-w-16 flex-1 border-0 bg-transparent py-0 text-sm shadow-none ring-0 outline-none placeholder:text-muted-foreground focus:border-0 focus:ring-0 focus:outline-none"
 				onkeydown={onKeydown}
 				onfocus={() => (focused = true)}
 				onblur={() => (focused = false)}
@@ -101,8 +104,11 @@
 			{#each available as suggestion (suggestion)}
 				<button
 					type="button"
-					onmousedown={(e) => { e.preventDefault(); addValue(suggestion); }}
-					class="w-full px-2.5 py-1 text-left text-xs text-muted-foreground cursor-pointer hover:bg-accent hover:text-accent-foreground transition-colors"
+					onmousedown={(e) => {
+						e.preventDefault();
+						addValue(suggestion);
+					}}
+					class="w-full cursor-pointer px-2.5 py-1 text-left text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
 				>
 					{suggestion}
 				</button>

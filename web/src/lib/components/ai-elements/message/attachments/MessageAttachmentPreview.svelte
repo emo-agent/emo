@@ -1,7 +1,7 @@
 <script lang="ts">
-	import * as Dialog from "$lib/components/ui/dialog/index.js";
-	import { cn } from "$lib/utils";
-	import type { MessageAttachmentData } from "../context/message-context.svelte.js";
+	import * as Dialog from '$lib/components/ui/dialog/index.js';
+	import { cn } from '$lib/utils';
+	import type { MessageAttachmentData } from '../context/message-context.svelte.js';
 
 	interface Props {
 		data: MessageAttachmentData;
@@ -11,7 +11,7 @@
 	let { data, class: className }: Props = $props();
 
 	let ratio = $state(1);
-	let src = $derived(data.url ?? "");
+	let src = $derived(data.url ?? '');
 	let previewFrameStyle = $derived.by(() => {
 		const safeRatio = ratio > 0 ? ratio : 1;
 
@@ -33,12 +33,12 @@
 
 <Dialog.Root>
 	<Dialog.Trigger
-		aria-label={`Preview ${data.filename || "image attachment"}`}
-		class={cn("block size-full cursor-zoom-in overflow-hidden rounded-lg", className)}
+		aria-label={`Preview ${data.filename || 'image attachment'}`}
+		class={cn('block size-full cursor-zoom-in overflow-hidden rounded-lg', className)}
 		type="button"
 	>
 		<img
-			alt={data.filename || "attachment"}
+			alt={data.filename || 'attachment'}
 			class="size-full object-cover object-center transition-transform duration-200 group-hover:scale-[1.03]"
 			height={96}
 			onload={handleImageLoad}
@@ -52,7 +52,7 @@
 		showCloseButton={false}
 	>
 		<Dialog.Header class="sr-only">
-			<Dialog.Title>{data.filename || "Image attachment"}</Dialog.Title>
+			<Dialog.Title>{data.filename || 'Image attachment'}</Dialog.Title>
 			<Dialog.Description>Preview image attachment</Dialog.Description>
 		</Dialog.Header>
 
@@ -62,7 +62,7 @@
 				style={previewFrameStyle}
 			>
 				<img
-					alt={data.filename || "attachment preview"}
+					alt={data.filename || 'attachment preview'}
 					class="size-full object-contain object-center"
 					onload={handleImageLoad}
 					{src}

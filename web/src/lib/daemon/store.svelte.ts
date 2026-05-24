@@ -25,7 +25,8 @@ import type {
 } from './protocol';
 
 // Vite exposes env vars prefixed with VITE_; fall back to the default daemon address.
-const DAEMON_URL: string = (import.meta.env.VITE_EMO_DAEMON_URL as string | undefined) ?? 'ws://127.0.0.1:7777/ws';
+const DAEMON_URL: string =
+	(import.meta.env.VITE_EMO_DAEMON_URL as string | undefined) ?? 'ws://127.0.0.1:7777/ws';
 
 const STORAGE_KEY = 'emo_daemon_token';
 
@@ -49,12 +50,8 @@ function createDaemonStore() {
 	let forcedAgent = $state<string | null>(null); // set by /agent command
 
 	// ── Derived ─────────────────────────────────────────────────────────────
-	const sortedSessions = $derived(
-		[...sessions].sort((a, b) => b.updated_at - a.updated_at)
-	);
-	const activeSession = $derived(
-		sessions.find((s) => s.id === activeSessionId) ?? null
-	);
+	const sortedSessions = $derived([...sessions].sort((a, b) => b.updated_at - a.updated_at));
+	const activeSession = $derived(sessions.find((s) => s.id === activeSessionId) ?? null);
 	const messages = $derived(activeSession?.messages ?? []);
 
 	// ── Internal WebSocket state ─────────────────────────────────────────────
@@ -244,49 +241,49 @@ function createDaemonStore() {
 				break;
 			}
 
-		case 'tool': {
-			// Attach tool call to the last assistant message in this session
-			sessions = sessions.map((s) => {
-				if (s.id !== msg.session_id) return s;
-				const msgs = [...s.messages];
-				const last = msgs[msgs.length - 1];
-				if (last && last.role === 'assistant') {
-					const toolCall: ToolCall = {
-						id: crypto.randomUUID(),
-						name: msg.name,
-						preview: msg.preview,
-						input: msg.input,
-						output: msg.output,
-						started_at: Date.now() / 1000
-					};
-					const existing = last.tool_calls ?? [];
-					msgs[msgs.length - 1] = { ...last, tool_calls: [...existing, toolCall] };
-				}
-				return { ...s, messages: msgs };
-			});
-			break;
-		}
+			case 'tool': {
+				// Attach tool call to the last assistant message in this session
+				sessions = sessions.map((s) => {
+					if (s.id !== msg.session_id) return s;
+					const msgs = [...s.messages];
+					const last = msgs[msgs.length - 1];
+					if (last && last.role === 'assistant') {
+						const toolCall: ToolCall = {
+							id: crypto.randomUUID(),
+							name: msg.name,
+							preview: msg.preview,
+							input: msg.input,
+							output: msg.output,
+							started_at: Date.now() / 1000
+						};
+						const existing = last.tool_calls ?? [];
+						msgs[msgs.length - 1] = { ...last, tool_calls: [...existing, toolCall] };
+					}
+					return { ...s, messages: msgs };
+				});
+				break;
+			}
 
-		case 'agent': {
-			// Attach agent action to the last assistant message in this session
-			sessions = sessions.map((s) => {
-				if (s.id !== msg.session_id) return s;
-				const msgs = [...s.messages];
-				const last = msgs[msgs.length - 1];
-				if (last && last.role === 'assistant') {
-					const agentAction: AgentAction = {
-						id: crypto.randomUUID(),
-						name: msg.name,
-						action: msg.action,
-						started_at: Date.now() / 1000
-					};
-					const existing = last.agent_actions ?? [];
-					msgs[msgs.length - 1] = { ...last, agent_actions: [...existing, agentAction] };
-				}
-				return { ...s, messages: msgs };
-			});
-			break;
-		}
+			case 'agent': {
+				// Attach agent action to the last assistant message in this session
+				sessions = sessions.map((s) => {
+					if (s.id !== msg.session_id) return s;
+					const msgs = [...s.messages];
+					const last = msgs[msgs.length - 1];
+					if (last && last.role === 'assistant') {
+						const agentAction: AgentAction = {
+							id: crypto.randomUUID(),
+							name: msg.name,
+							action: msg.action,
+							started_at: Date.now() / 1000
+						};
+						const existing = last.agent_actions ?? [];
+						msgs[msgs.length - 1] = { ...last, agent_actions: [...existing, agentAction] };
+					}
+					return { ...s, messages: msgs };
+				});
+				break;
+			}
 
 			case 'config_data':
 				configData = msg.data;
@@ -331,7 +328,7 @@ function createDaemonStore() {
 	function renameSession(id: string, title: string) {
 		if (!title.trim()) return;
 		// Optimistically update local state
-		sessions = sessions.map((s) => s.id === id ? { ...s, title: title.trim() } : s);
+		sessions = sessions.map((s) => (s.id === id ? { ...s, title: title.trim() } : s));
 		_send({ type: 'rename_session', session_id: id, title: title.trim() });
 	}
 
@@ -362,7 +359,11 @@ function createDaemonStore() {
 		if (sid) {
 			sessions = sessions.map((s) =>
 				s.id === sid
-					? { ...s, messages: [...s.messages, userMsg, assistantMsg], updated_at: Date.now() / 1000 }
+					? {
+							...s,
+							messages: [...s.messages, userMsg, assistantMsg],
+							updated_at: Date.now() / 1000
+						}
 					: s
 			);
 		}
@@ -374,7 +375,7 @@ function createDaemonStore() {
 		_send({ type: 'chat', session_id: sid, content: content.trim(), agent: resolvedAgent });
 	}
 
-		// ── Config / Agent / Skill / MCP actions ─────────────────────────────────
+	// ── Config / Agent / Skill / MCP actions ─────────────────────────────────
 
 	/** Inject a local system message into the active session (no LLM call). */
 	function postSystemMessage(content: string) {
@@ -386,28 +387,52 @@ function createDaemonStore() {
 			content,
 			created_at: Date.now() / 1000
 		};
-		sessions = sessions.map((s) =>
-			s.id === sid ? { ...s, messages: [...s.messages, msg] } : s
-		);
+		sessions = sessions.map((s) => (s.id === sid ? { ...s, messages: [...s.messages, msg] } : s));
 	}
 
 	function setForcedAgent(name: string | null) {
 		forcedAgent = name;
 	}
 
-	function fetchConfig() { _send({ type: 'get_config' }); }
-	function setConfig(patch: Record<string, unknown>) { _send({ type: 'set_config', patch }); }
-	function fetchAgents() { _send({ type: 'list_agents' }); }
-	function fetchAgent(name: string) { _send({ type: 'get_agent', name }); }
-	function saveAgent(name: string, config: Record<string, unknown>) { _send({ type: 'set_agent', name, config }); }
-	function deleteAgent(name: string) { _send({ type: 'delete_agent', name }); }
-	function fetchSkills() { _send({ type: 'list_skills' }); }
-	function fetchSkill(name: string) { _send({ type: 'get_skill', name }); }
-	function saveSkill(name: string, content: string) { _send({ type: 'set_skill', name, content }); }
-	function deleteSkill(name: string) { _send({ type: 'delete_skill', name }); }
-	function fetchMCPs() { _send({ type: 'list_mcps' }); }
-	function saveMCP(name: string, config: Record<string, unknown>) { _send({ type: 'set_mcp', name, config }); }
-	function deleteMCP(name: string) { _send({ type: 'delete_mcp', name }); }
+	function fetchConfig() {
+		_send({ type: 'get_config' });
+	}
+	function setConfig(patch: Record<string, unknown>) {
+		_send({ type: 'set_config', patch });
+	}
+	function fetchAgents() {
+		_send({ type: 'list_agents' });
+	}
+	function fetchAgent(name: string) {
+		_send({ type: 'get_agent', name });
+	}
+	function saveAgent(name: string, config: Record<string, unknown>) {
+		_send({ type: 'set_agent', name, config });
+	}
+	function deleteAgent(name: string) {
+		_send({ type: 'delete_agent', name });
+	}
+	function fetchSkills() {
+		_send({ type: 'list_skills' });
+	}
+	function fetchSkill(name: string) {
+		_send({ type: 'get_skill', name });
+	}
+	function saveSkill(name: string, content: string) {
+		_send({ type: 'set_skill', name, content });
+	}
+	function deleteSkill(name: string) {
+		_send({ type: 'delete_skill', name });
+	}
+	function fetchMCPs() {
+		_send({ type: 'list_mcps' });
+	}
+	function saveMCP(name: string, config: Record<string, unknown>) {
+		_send({ type: 'set_mcp', name, config });
+	}
+	function deleteMCP(name: string) {
+		_send({ type: 'delete_mcp', name });
+	}
 
 	return {
 		// State
@@ -435,13 +460,27 @@ function createDaemonStore() {
 		get error() {
 			return error;
 		},
-		get configData() { return configData; },
-		get agents() { return agents; },
-		get skills() { return skills; },
-		get mcps() { return mcps; },
-		get activeAgentConfig() { return activeAgentConfig; },
-		get activeSkillContent() { return activeSkillContent; },
-		get forcedAgent() { return forcedAgent; },
+		get configData() {
+			return configData;
+		},
+		get agents() {
+			return agents;
+		},
+		get skills() {
+			return skills;
+		},
+		get mcps() {
+			return mcps;
+		},
+		get activeAgentConfig() {
+			return activeAgentConfig;
+		},
+		get activeSkillContent() {
+			return activeSkillContent;
+		},
+		get forcedAgent() {
+			return forcedAgent;
+		},
 		// Actions
 		connect,
 		disconnect,

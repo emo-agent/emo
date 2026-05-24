@@ -1,9 +1,9 @@
 <script lang="ts">
-	import * as ButtonGroup from "$lib/components/ui/button-group/index.js";
-	import { cn } from "$lib/utils";
-	import type { Snippet } from "svelte";
-	import type { HTMLAttributes } from "svelte/elements";
-	import { getMessageBranchContext } from "../context/message-context.svelte.js";
+	import * as ButtonGroup from '$lib/components/ui/button-group/index.js';
+	import { cn } from '$lib/utils';
+	import type { Snippet } from 'svelte';
+	import type { HTMLAttributes } from 'svelte/elements';
+	import { getMessageBranchContext } from '../context/message-context.svelte.js';
 
 	interface Props extends HTMLAttributes<HTMLDivElement> {
 		class?: string;
@@ -20,7 +20,7 @@
 {#if shouldRender}
 	<ButtonGroup.Root
 		class={cn(
-			"[&>*:not(:first-child)]:rounded-l-md [&>*:not(:last-child)]:rounded-r-md",
+			'[&>*:not(:first-child)]:rounded-l-md [&>*:not(:last-child)]:rounded-r-md',
 			className
 		)}
 		orientation="horizontal"

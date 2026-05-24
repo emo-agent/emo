@@ -1,10 +1,10 @@
 <script lang="ts">
-	import { cn } from "$lib/utils";
-	import * as DropdownMenu from "$lib/components/ui/dropdown-menu/index.js";
+	import { cn } from '$lib/utils';
+	import * as DropdownMenu from '$lib/components/ui/dropdown-menu/index.js';
 
 	interface Props {
 		class?: string;
-		children?: import("svelte").Snippet;
+		children?: import('svelte').Snippet;
 		onSelect?: (event: Event) => void;
 	}
 

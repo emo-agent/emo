@@ -1,15 +1,15 @@
 <script lang="ts">
-	import { onDestroy, untrack } from "svelte";
-	import { Controller, setPromptInputProvider } from "../context/provider.svelte.js";
+	import { onDestroy, untrack } from 'svelte';
+	import { Controller, setPromptInputProvider } from '../context/provider.svelte.js';
 
 	interface Props {
 		initialInput?: string;
 		accept?: string;
 		multiple?: boolean;
-		children?: import("svelte").Snippet;
+		children?: import('svelte').Snippet;
 	}
 
-	let { initialInput = "", accept, multiple = true, children }: Props = $props();
+	let { initialInput = '', accept, multiple = true, children }: Props = $props();
 
 	let controller = new Controller(
 		untrack(() => initialInput),

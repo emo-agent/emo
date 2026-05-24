@@ -71,16 +71,20 @@
 
 	function updateAutocomplete() {
 		const wordInfo = getWordAtCursor();
-		if (!wordInfo) { hideAutocomplete(); return; }
+		if (!wordInfo) {
+			hideAutocomplete();
+			return;
+		}
 
 		const { word } = wordInfo;
 
 		if (word.startsWith('@')) {
 			completionType = '@';
 			const partial = word.slice(1).toLowerCase();
-			const agents = daemon.agents.length > 0
-				? daemon.agents.map((a) => a.name)
-				: ['general', 'code', 'research'];
+			const agents =
+				daemon.agents.length > 0
+					? daemon.agents.map((a) => a.name)
+					: ['general', 'code', 'research'];
 			autocompleteItems = partial
 				? agents.filter((a) => a.toLowerCase().startsWith(partial))
 				: agents;
@@ -182,8 +186,9 @@
 			case '/model': {
 				ensureSession();
 				if (parts.length < 2) {
-					const model =
-						(daemon.configData?.agent as Record<string, unknown> | undefined)?.llm as Record<string, unknown> | undefined;
+					const model = (daemon.configData?.agent as Record<string, unknown> | undefined)?.llm as
+						| Record<string, unknown>
+						| undefined;
 					const name = model?.model ?? 'unknown';
 					daemon.postSystemMessage(`Current model: \`${name}\``);
 				} else {
@@ -351,10 +356,13 @@
 	<!-- svelte-ignore a11y_no_static_element_interactions -->
 	<div
 		class="fixed z-[9999] min-w-40 overflow-hidden rounded-lg border bg-popover py-1 shadow-lg"
-		style="bottom: {window.innerHeight - dropdownTop}px; left: {dropdownLeft}px; width: {dropdownWidth}px;"
+		style="bottom: {window.innerHeight -
+			dropdownTop}px; left: {dropdownLeft}px; width: {dropdownWidth}px;"
 		onmousedown={(e) => e.preventDefault()}
 	>
-		<p class="px-2 pb-1 pt-0.5 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+		<p
+			class="px-2 pt-0.5 pb-1 text-[10px] font-medium tracking-wide text-muted-foreground uppercase"
+		>
 			{completionType === '@' ? 'Agents' : 'Commands'}
 		</p>
 		{#each autocompleteItems as item, i (item)}
@@ -362,10 +370,15 @@
 				type="button"
 				class="w-full px-3 py-1.5 text-left text-sm transition-colors
 					{i === selectedIndex
-						? 'bg-accent text-accent-foreground'
-						: 'text-popover-foreground hover:bg-accent/60'}"
-				onmousedown={(e) => { e.preventDefault(); insertCompletion(item); }}
-				onmouseenter={() => { selectedIndex = i; }}
+					? 'bg-accent text-accent-foreground'
+					: 'text-popover-foreground hover:bg-accent/60'}"
+				onmousedown={(e) => {
+					e.preventDefault();
+					insertCompletion(item);
+				}}
+				onmouseenter={() => {
+					selectedIndex = i;
+				}}
 			>
 				{item}
 			</button>

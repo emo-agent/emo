@@ -42,10 +42,10 @@
 				bind:value={pin}
 				onkeydown={handleKeydown}
 				autofocus
-				class="text-center tracking-widest text-lg"
+				class="text-center text-lg tracking-widest"
 			/>
 			{#if error}
-				<p class="text-destructive text-sm">{error}</p>
+				<p class="text-sm text-destructive">{error}</p>
 			{/if}
 		</div>
 		<Dialog.Footer>

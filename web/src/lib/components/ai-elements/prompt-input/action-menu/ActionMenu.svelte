@@ -1,9 +1,9 @@
 <script lang="ts">
-	import * as DropdownMenu from "$lib/components/ui/dropdown-menu/index.js";
+	import * as DropdownMenu from '$lib/components/ui/dropdown-menu/index.js';
 
 	interface Props {
 		open?: boolean;
-		children?: import("svelte").Snippet;
+		children?: import('svelte').Snippet;
 	}
 
 	let { open = $bindable(false), children, ...props }: Props = $props();

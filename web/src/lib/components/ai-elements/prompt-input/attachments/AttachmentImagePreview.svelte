@@ -1,9 +1,9 @@
 <script lang="ts">
-	import * as AspectRatio from "$lib/components/ui/aspect-ratio/index.js";
-	import * as Dialog from "$lib/components/ui/dialog";
-	import { getAttachmentsContext } from "../context/attachments.svelte.js";
-	import { cn } from "$lib/utils";
-	import type { PromptInputAttachment } from "../context/types.js";
+	import * as AspectRatio from '$lib/components/ui/aspect-ratio/index.js';
+	import * as Dialog from '$lib/components/ui/dialog';
+	import { getAttachmentsContext } from '../context/attachments.svelte.js';
+	import { cn } from '$lib/utils';
+	import type { PromptInputAttachment } from '../context/types.js';
 
 	interface Props {
 		data: PromptInputAttachment;
@@ -15,7 +15,7 @@
 	let attachmentsContext = getAttachmentsContext();
 	let open = $state(false);
 	let ratio = $state(1);
-	let currentImageId = $state("");
+	let currentImageId = $state('');
 
 	let getDisplayUrl = (attachment: PromptInputAttachment) => {
 		return attachment.previewUrl ?? attachment.remoteUrl;
@@ -23,7 +23,7 @@
 
 	let imageFiles = $derived(
 		attachmentsContext.attachments.filter(
-			(file) => file.mediaType?.startsWith("image/") && getDisplayUrl(file)
+			(file) => file.mediaType?.startsWith('image/') && getDisplayUrl(file)
 		)
 	);
 
@@ -63,12 +63,12 @@
 	function handleDialogKeydown(event: KeyboardEvent) {
 		if (!open) return;
 
-		if (event.key === "ArrowLeft") {
+		if (event.key === 'ArrowLeft') {
 			event.preventDefault();
 			showPreviousImage();
 		}
 
-		if (event.key === "ArrowRight") {
+		if (event.key === 'ArrowRight') {
 			event.preventDefault();
 			showNextImage();
 		}
@@ -84,14 +84,14 @@
 
 <Dialog.Root bind:open>
 	<Dialog.Trigger
-		aria-label={`Preview ${data.filename || "image attachment"}`}
-		class={cn("block size-full cursor-zoom-in overflow-hidden rounded-md", className)}
+		aria-label={`Preview ${data.filename || 'image attachment'}`}
+		class={cn('block size-full cursor-zoom-in overflow-hidden rounded-md', className)}
 		onclick={() => syncCurrentImage(data.id)}
 		type="button"
 		{...props}
 	>
 		<img
-			alt={data.filename || "attachment"}
+			alt={data.filename || 'attachment'}
 			class="size-full rounded-md object-cover transition-transform duration-200 group-hover:scale-[1.03]"
 			height={56}
 			onload={handleImageLoad}
@@ -108,7 +108,7 @@
 			<div style:width="min(92vw, 960px)" style:max-height="min(80vh, 720px)">
 				<AspectRatio.Root class="overflow-hidden rounded-2xl bg-black/95" {ratio}>
 					<img
-						alt={currentImage.filename || "attachment preview"}
+						alt={currentImage.filename || 'attachment preview'}
 						class="size-full object-contain"
 						onload={handleImageLoad}
 						src={getDisplayUrl(currentImage)}

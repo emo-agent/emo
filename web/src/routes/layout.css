@@ -1,8 +1,8 @@
 @import 'tailwindcss';
-@import "tw-animate-css";
-@import "shadcn-svelte/tailwind.css";
-@import "@fontsource-variable/source-sans-3";
-@import "@fontsource-variable/ibm-plex-sans";
+@import 'tw-animate-css';
+@import 'shadcn-svelte/tailwind.css';
+@import '@fontsource-variable/source-sans-3';
+@import '@fontsource-variable/ibm-plex-sans';
 
 @custom-variant dark (&:is(.dark *));
 @plugin '@tailwindcss/forms';

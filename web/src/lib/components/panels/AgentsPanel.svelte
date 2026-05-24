@@ -1,7 +1,22 @@
 <script lang="ts">
 	import { daemon } from '$lib/daemon/store.svelte';
 	import ChipInput from '$lib/components/ChipInput.svelte';
-	import { Cpu, FileText, Wrench, Users, BookOpen, ChevronLeft, Trash2, Bot, Link, KeyRound, Thermometer, Hash, RefreshCw, ScanText } from '@lucide/svelte';
+	import {
+		Cpu,
+		FileText,
+		Wrench,
+		Users,
+		BookOpen,
+		ChevronLeft,
+		Trash2,
+		Bot,
+		Link,
+		KeyRound,
+		Thermometer,
+		Hash,
+		RefreshCw,
+		ScanText
+	} from '@lucide/svelte';
 
 	const AVAILABLE_TOOLS = ['shell', 'file_read', 'file_write', 'web_fetch'] as const;
 
@@ -129,7 +144,8 @@
 		selectedAgent = null;
 	}
 
-	const iconClass = 'absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none';
+	const iconClass =
+		'absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none';
 	const inputClass =
 		'h-9 rounded-md border bg-background pl-9 pr-3 text-sm outline-none focus:ring-1 focus:ring-ring w-full';
 	const labelClass = 'text-xs font-medium text-muted-foreground';
@@ -141,12 +157,15 @@
 
 {#if isNew || selectedAgent}
 	<!-- Detail / edit view -->
-	<div class="max-w-2xl mx-auto py-8 px-6 flex flex-col gap-8">
+	<div class="mx-auto flex max-w-2xl flex-col gap-8 px-6 py-8">
 		<!-- Breadcrumb + name -->
 		<div>
 			<button
-				onclick={() => { selectedAgent = null; isNew = false; }}
-				class="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground mb-2 transition-colors"
+				onclick={() => {
+					selectedAgent = null;
+					isNew = false;
+				}}
+				class="mb-2 flex items-center gap-1.5 text-xs text-muted-foreground transition-colors hover:text-foreground"
 			>
 				<ChevronLeft class="h-3.5 w-3.5" /> All Agents
 			</button>
@@ -167,14 +186,18 @@
 		</div>
 
 		<!-- LLM Overrides card -->
-		<div class="rounded-xl border bg-card p-6 flex flex-col gap-5">
-			<div class="flex items-start gap-3 mb-2">
-				<div class="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+		<div class="flex flex-col gap-5 rounded-xl border bg-card p-6">
+			<div class="mb-2 flex items-start gap-3">
+				<div
+					class="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary"
+				>
 					<Cpu class="h-4 w-4" />
 				</div>
 				<div>
 					<h3 class="text-sm font-semibold text-foreground">LLM Overrides</h3>
-					<p class="text-xs text-muted-foreground mt-0.5">Leave blank to inherit from the global agent config</p>
+					<p class="mt-0.5 text-xs text-muted-foreground">
+						Leave blank to inherit from the global agent config
+					</p>
 				</div>
 			</div>
 
@@ -183,21 +206,39 @@
 					<label class={labelClass} for="ag-llm-model">Model</label>
 					<div class="relative">
 						<Bot class={iconClass} />
-						<input id="ag-llm-model" type="text" bind:value={llmModel} placeholder="inherits from agent.llm.model" class={inputClass} />
+						<input
+							id="ag-llm-model"
+							type="text"
+							bind:value={llmModel}
+							placeholder="inherits from agent.llm.model"
+							class={inputClass}
+						/>
 					</div>
 				</div>
 				<div class="flex flex-col gap-1.5">
 					<label class={labelClass} for="ag-llm-base">API Base</label>
 					<div class="relative">
 						<Link class={iconClass} />
-						<input id="ag-llm-base" type="text" bind:value={llmApiBase} placeholder="optional" class={inputClass} />
+						<input
+							id="ag-llm-base"
+							type="text"
+							bind:value={llmApiBase}
+							placeholder="optional"
+							class={inputClass}
+						/>
 					</div>
 				</div>
 				<div class="flex flex-col gap-1.5">
 					<label class={labelClass} for="ag-llm-key">API Key</label>
 					<div class="relative">
 						<KeyRound class={iconClass} />
-						<input id="ag-llm-key" type="password" bind:value={llmApiKey} placeholder="optional" class={inputClass} />
+						<input
+							id="ag-llm-key"
+							type="password"
+							bind:value={llmApiKey}
+							placeholder="optional"
+							class={inputClass}
+						/>
 					</div>
 				</div>
 				<div class="grid grid-cols-2 gap-4">
@@ -205,14 +246,29 @@
 						<label class={labelClass} for="ag-llm-temp">Temperature</label>
 						<div class="relative">
 							<Thermometer class={iconClass} />
-							<input id="ag-llm-temp" type="number" min="0" max="2" step="0.05" bind:value={llmTemperature} placeholder="inherit" class={inputClass} />
+							<input
+								id="ag-llm-temp"
+								type="number"
+								min="0"
+								max="2"
+								step="0.05"
+								bind:value={llmTemperature}
+								placeholder="inherit"
+								class={inputClass}
+							/>
 						</div>
 					</div>
 					<div class="flex flex-col gap-1.5">
 						<label class={labelClass} for="ag-llm-maxtok">Max Tokens</label>
 						<div class="relative">
 							<Hash class={iconClass} />
-							<input id="ag-llm-maxtok" type="number" bind:value={llmMaxTokens} placeholder="inherit" class={inputClass} />
+							<input
+								id="ag-llm-maxtok"
+								type="number"
+								bind:value={llmMaxTokens}
+								placeholder="inherit"
+								class={inputClass}
+							/>
 						</div>
 					</div>
 				</div>
@@ -221,14 +277,26 @@
 						<label class={labelClass} for="ag-llm-maxiter">Max Iterations</label>
 						<div class="relative">
 							<RefreshCw class={iconClass} />
-							<input id="ag-llm-maxiter" type="number" bind:value={llmMaxIterations} placeholder="inherit" class={inputClass} />
+							<input
+								id="ag-llm-maxiter"
+								type="number"
+								bind:value={llmMaxIterations}
+								placeholder="inherit"
+								class={inputClass}
+							/>
 						</div>
 					</div>
 					<div class="flex flex-col gap-1.5">
 						<label class={labelClass} for="ag-llm-ctx">Context Window</label>
 						<div class="relative">
 							<ScanText class={iconClass} />
-							<input id="ag-llm-ctx" type="number" bind:value={llmContextWindow} placeholder="inherit" class={inputClass} />
+							<input
+								id="ag-llm-ctx"
+								type="number"
+								bind:value={llmContextWindow}
+								placeholder="inherit"
+								class={inputClass}
+							/>
 						</div>
 					</div>
 				</div>
@@ -236,33 +304,39 @@
 		</div>
 
 		<!-- Prompt card -->
-		<div class="rounded-xl border bg-card p-6 flex flex-col gap-5">
-			<div class="flex items-start gap-3 mb-2">
-				<div class="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+		<div class="flex flex-col gap-5 rounded-xl border bg-card p-6">
+			<div class="mb-2 flex items-start gap-3">
+				<div
+					class="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary"
+				>
 					<FileText class="h-4 w-4" />
 				</div>
 				<div>
 					<h3 class="text-sm font-semibold text-foreground">Prompt</h3>
-					<p class="text-xs text-muted-foreground mt-0.5">System prompt for this agent</p>
+					<p class="mt-0.5 text-xs text-muted-foreground">System prompt for this agent</p>
 				</div>
 			</div>
 			<textarea
 				id="ag-prompt"
 				bind:value={prompt}
 				rows={8}
-				class="w-full rounded-md border bg-background px-3 py-2 font-mono text-xs outline-none focus:ring-1 focus:ring-ring resize-y"
+				class="w-full resize-y rounded-md border bg-background px-3 py-2 font-mono text-xs outline-none focus:ring-1 focus:ring-ring"
 			></textarea>
 		</div>
 
 		<!-- Tools card -->
-		<div class="rounded-xl border bg-card p-6 flex flex-col gap-5">
-			<div class="flex items-start gap-3 mb-2">
-				<div class="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+		<div class="flex flex-col gap-5 rounded-xl border bg-card p-6">
+			<div class="mb-2 flex items-start gap-3">
+				<div
+					class="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary"
+				>
 					<Wrench class="h-4 w-4" />
 				</div>
 				<div>
 					<h3 class="text-sm font-semibold text-foreground">Tools</h3>
-					<p class="text-xs text-muted-foreground mt-0.5">Select all = all tools (null); select none = no tools</p>
+					<p class="mt-0.5 text-xs text-muted-foreground">
+						Select all = all tools (null); select none = no tools
+					</p>
 				</div>
 			</div>
 			<ChipInput
@@ -273,20 +347,24 @@
 		</div>
 
 		<!-- Subagents & Skills card -->
-		<div class="rounded-xl border bg-card p-6 flex flex-col gap-5">
-			<div class="flex items-start gap-3 mb-2">
-				<div class="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+		<div class="flex flex-col gap-5 rounded-xl border bg-card p-6">
+			<div class="mb-2 flex items-start gap-3">
+				<div
+					class="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary"
+				>
 					<Users class="h-4 w-4" />
 				</div>
 				<div>
 					<h3 class="text-sm font-semibold text-foreground">Subagents &amp; Skills</h3>
-					<p class="text-xs text-muted-foreground mt-0.5">Agents and skills this agent can delegate to</p>
+					<p class="mt-0.5 text-xs text-muted-foreground">
+						Agents and skills this agent can delegate to
+					</p>
 				</div>
 			</div>
 
 			<div class="flex flex-col gap-4">
 				<div class="flex flex-col gap-1.5">
-					<div class="flex items-center gap-2 mb-0.5">
+					<div class="mb-0.5 flex items-center gap-2">
 						<Users class="h-3.5 w-3.5 text-muted-foreground" />
 						<label class={labelClass} for="ag-subagents">Subagents</label>
 					</div>
@@ -298,7 +376,7 @@
 					/>
 				</div>
 				<div class="flex flex-col gap-1.5">
-					<div class="flex items-center gap-2 mb-0.5">
+					<div class="mb-0.5 flex items-center gap-2">
 						<BookOpen class="h-3.5 w-3.5 text-muted-foreground" />
 						<label class={labelClass} for="ag-skills">Skills</label>
 					</div>
@@ -316,7 +394,7 @@
 		<div class="flex items-center gap-3 pt-2 pb-4">
 			<button
 				onclick={save}
-				class="rounded-md bg-primary px-6 py-2 text-sm font-medium text-primary-foreground hover:opacity-90 transition-opacity"
+				class="rounded-md bg-primary px-6 py-2 text-sm font-medium text-primary-foreground transition-opacity hover:opacity-90"
 			>
 				{saveMsg || 'Save changes'}
 			</button>
@@ -326,7 +404,7 @@
 				{#if agent?.source === 'user'}
 					<button
 						onclick={() => selectedAgent && deleteAgent(selectedAgent)}
-						class="ml-auto flex items-center gap-1.5 rounded-md border border-destructive/50 px-4 py-2 text-sm font-medium text-destructive hover:bg-destructive/10 transition-colors"
+						class="ml-auto flex items-center gap-1.5 rounded-md border border-destructive/50 px-4 py-2 text-sm font-medium text-destructive transition-colors hover:bg-destructive/10"
 					>
 						<Trash2 class="h-3.5 w-3.5" /> Delete
 					</button>
@@ -336,15 +414,15 @@
 	</div>
 {:else}
 	<!-- List view -->
-	<div class="max-w-2xl mx-auto py-8 px-6 flex flex-col gap-6">
+	<div class="mx-auto flex max-w-2xl flex-col gap-6 px-6 py-8">
 		<div class="flex items-center justify-between">
 			<div>
 				<h2 class="text-lg font-semibold">Agents</h2>
-				<p class="text-sm text-muted-foreground mt-0.5">Manage your AI agents</p>
+				<p class="mt-0.5 text-sm text-muted-foreground">Manage your AI agents</p>
 			</div>
 			<button
 				onclick={startNew}
-				class="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:opacity-90 transition-opacity"
+				class="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-opacity hover:opacity-90"
 			>
 				+ New Agent
 			</button>
@@ -353,29 +431,41 @@
 		<div class="flex flex-col gap-2">
 			{#each daemon.agents as agent (agent.name)}
 				{@const tools = agent.config.tools as string[] | null | undefined}
-				<div class="flex items-center gap-3 rounded-xl border bg-card px-4 py-3 hover:bg-accent/30 transition-colors">
-					<div class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-muted text-muted-foreground text-xs font-bold">
+				<div
+					class="flex items-center gap-3 rounded-xl border bg-card px-4 py-3 transition-colors hover:bg-accent/30"
+				>
+					<div
+						class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-muted text-xs font-bold text-muted-foreground"
+					>
 						{agent.name[0].toUpperCase()}
 					</div>
-					<div class="flex-1 min-w-0">
-						<p class="text-sm font-semibold truncate">{agent.name}</p>
-						<p class="text-xs text-muted-foreground mt-0.5">
-							{tools === null || tools === undefined ? 'all tools' : tools.length === 0 ? 'no tools' : `${tools.length} tool${tools.length !== 1 ? 's' : ''}`}
+					<div class="min-w-0 flex-1">
+						<p class="truncate text-sm font-semibold">{agent.name}</p>
+						<p class="mt-0.5 text-xs text-muted-foreground">
+							{tools === null || tools === undefined
+								? 'all tools'
+								: tools.length === 0
+									? 'no tools'
+									: `${tools.length} tool${tools.length !== 1 ? 's' : ''}`}
 						</p>
 					</div>
-					<span class="rounded-full px-2.5 py-0.5 text-xs font-medium shrink-0 {agent.source === 'user' ? 'bg-primary/15 text-primary' : 'bg-muted text-muted-foreground'}">
+					<span
+						class="shrink-0 rounded-full px-2.5 py-0.5 text-xs font-medium {agent.source === 'user'
+							? 'bg-primary/15 text-primary'
+							: 'bg-muted text-muted-foreground'}"
+					>
 						{agent.source}
 					</span>
 					<button
 						onclick={() => selectAgent(agent.name)}
-						class="rounded-md border px-3 py-1.5 text-xs font-medium hover:bg-accent shrink-0 transition-colors"
+						class="shrink-0 rounded-md border px-3 py-1.5 text-xs font-medium transition-colors hover:bg-accent"
 					>
 						Edit
 					</button>
 				</div>
 			{/each}
 			{#if daemon.agents.length === 0}
-				<p class="text-sm text-muted-foreground py-8 text-center">No agents found</p>
+				<p class="py-8 text-center text-sm text-muted-foreground">No agents found</p>
 			{/if}
 		</div>
 	</div>

@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { daemon } from '$lib/daemon/store.svelte';
-	import { goto } from '$app/navigation';
+	import { goto, resolve } from '$app/navigation';
 	import { page } from '$app/state';
 	import {
 		Plus,
@@ -64,7 +64,10 @@
 	}
 
 	function onEditKeydown(e: KeyboardEvent) {
-		if (e.key === 'Enter') { e.preventDefault(); commitEdit(); }
+		if (e.key === 'Enter') {
+			e.preventDefault();
+			commitEdit();
+		}
 		if (e.key === 'Escape') cancelEdit();
 	}
 
@@ -167,27 +170,27 @@
 										bind:value={editingTitle}
 										onkeydown={onEditKeydown}
 										onblur={commitEdit}
-										class="min-w-0 flex-1 rounded bg-background px-1.5 py-0.5 text-sm outline-none ring-1 ring-ring"
+										class="min-w-0 flex-1 rounded bg-background px-1.5 py-0.5 text-sm ring-1 ring-ring outline-none"
 									/>
 									<button
 										type="button"
 										onclick={commitEdit}
 										class="flex h-5 w-5 shrink-0 items-center justify-center rounded text-muted-foreground hover:text-foreground"
-										aria-label="Save"
-									><Check class="h-3.5 w-3.5" /></button>
+										aria-label="Save"><Check class="h-3.5 w-3.5" /></button
+									>
 									<button
 										type="button"
 										onclick={cancelEdit}
 										class="flex h-5 w-5 shrink-0 items-center justify-center rounded text-muted-foreground hover:text-foreground"
-										aria-label="Cancel"
-									><X class="h-3.5 w-3.5" /></button>
+										aria-label="Cancel"><X class="h-3.5 w-3.5" /></button
+									>
 								</div>
 							{:else}
 								<!-- Normal display mode -->
 								<button
 									onclick={() => {
 										daemon.selectSession(session.id);
-										if (page.url.pathname !== '/') goto('/');
+										if (page.url.pathname !== '/') goto(resolve('/'));
 									}}
 									class="flex w-full items-center gap-2 px-3 py-2 text-left"
 								>
@@ -200,7 +203,9 @@
 									</div>
 								</button>
 								<!-- Hover actions: edit + delete -->
-								<div class="absolute top-1/2 right-1 hidden -translate-y-1/2 items-center gap-0.5 group-hover/item:flex">
+								<div
+									class="absolute top-1/2 right-1 hidden -translate-y-1/2 items-center gap-0.5 group-hover/item:flex"
+								>
 									<button
 										onclick={(e) => startEdit(session, e)}
 										class="flex h-5 w-5 items-center justify-center rounded text-muted-foreground hover:text-foreground"
@@ -229,10 +234,10 @@
 
 	<!-- Bottom nav: settings + profile + theme -->
 	<div class="flex shrink-0 flex-col gap-0.5 border-t p-2">
-		{#each navItems as item}
+		{#each navItems as item (item.tab)}
 			{@const Icon = item.icon}
 			<a
-				href="/settings?tab={item.tab}"
+				href={resolve(`/settings?tab=${item.tab}`)}
 				class="flex items-center gap-2.5 rounded-md px-3 py-2 text-sm transition-colors {isActive(
 					item.tab
 				)
