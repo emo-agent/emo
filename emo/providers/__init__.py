@@ -28,7 +28,7 @@ from typing import Any, Callable
 
 import litellm
 
-from emo.config import Config
+from emo.config import RootConfig as Config
 
 
 litellm.set_verbose = False  # suppress litellm debug output
@@ -77,10 +77,17 @@ class BaseLLMProvider(ABC):
         """
 
     @abstractmethod
-    def complete_simple(self, messages: list[dict[str, Any]]) -> str:
+    def complete_simple(
+        self,
+        messages: list[dict[str, Any]],
+        temperature: float = 0.0,
+        max_tokens: int = 10,
+    ) -> str:
         """Cheap single-turn completion — returns text only.
 
         Used by the supervisor for intent routing. No tools, no streaming.
+        The ``temperature`` and ``max_tokens`` params allow the supervisor to
+        use its own router LLM settings independently of the agent LLM.
         """
 
 
@@ -117,11 +124,16 @@ class LiteLLMProvider(BaseLLMProvider):
             return self._stream(messages, tools, stream_callback)
         return self._blocking(messages, tools)
 
-    def complete_simple(self, messages: list[dict[str, Any]]) -> str:
+    def complete_simple(
+        self,
+        messages: list[dict[str, Any]],
+        temperature: float = 0.0,
+        max_tokens: int = 10,
+    ) -> str:
         kwargs = self._base_kwargs()
         kwargs["messages"] = messages
-        kwargs["temperature"] = 0.0
-        kwargs["max_tokens"] = 10
+        kwargs["temperature"] = temperature
+        kwargs["max_tokens"] = max_tokens
         try:
             response = litellm.completion(**kwargs)
             return response.choices[0].message.content.strip()

@@ -1,16 +1,35 @@
-"""Built-in sub-agents.
+"""Legacy Python agent subclasses — kept for backwards compatibility.
 
-Each agent is a minimal subclass of :class:`~emo.agent.base_agent.BaseAgent`
-that sets a name, system prompt, and optionally restricts tool access.
+As of v0.2, agents are defined in YAML files (``~/.emo/agents/*.yaml`` or
+``.emo/agents/*.yaml``).  These Python classes still work and can be
+registered with the :class:`~emo.agent.supervisor.Supervisor` via
+``supervisor.register(name, AgentClass)``, but the preferred approach is to
+use YAML-driven :class:`~emo.config.AgentConfig` objects discovered by
+:mod:`emo.agent.loader`.
 
-Adding a new agent
-------------------
-1. Subclass ``BaseAgent`` here (or in your own module).
-2. Set ``name``, ``system_prompt``, and ``tool_names``.
-3. Register it with the supervisor::
+Adding a new agent (YAML, preferred)
+-------------------------------------
+Create ``~/.emo/agents/myagent.yaml``::
 
-       from emo.agent.agents import AnalystAgent
-       supervisor.register("analyst", AnalystAgent)
+    prompt: "You are a specialist in..."
+    tools:
+      - file_read
+      - shell
+    llm:
+      temperature: 0.3
+
+Adding a new agent (Python, legacy)
+-------------------------------------
+::
+
+    from emo.agent import BaseAgent
+
+    class AnalystAgent(BaseAgent):
+        name = "analyst"
+        system_prompt = "You are a data analyst..."
+        tool_names = ["shell", "file_read"]
+
+    supervisor.register("analyst", AnalystAgent)
 """
 
 from __future__ import annotations

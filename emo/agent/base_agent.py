@@ -1,36 +1,30 @@
 """Base agent — core LLM + tool-use loop.
 
-Extending agents
-----------------
-Subclass :class:`BaseAgent` and set class attributes::
+Agents are now fully config-driven. Instead of subclassing with class-level
+attributes, create an :class:`~emo.config.AgentConfig` (loaded from YAML) and
+pass it to :class:`BaseAgent` directly::
 
-    class AnalystAgent(BaseAgent):
-        name = "analyst"
-        system_prompt = "You are a data analyst..."
-        tool_names = ["shell", "file_read"]   # None = all tools
+    from emo.config import AgentConfig, LLMConfig
+    from emo.agent import BaseAgent
 
-Then register it with the Supervisor::
-
-    supervisor.register("analyst", AnalystAgent)
-
-Or use it standalone::
-
-    from emo.providers import LiteLLMProvider
-    from emo.memory import SessionMemory, PersistentMemory
-
-    provider = LiteLLMProvider(config)
-    agent = AnalystAgent(
-        provider=provider,
-        session=SessionMemory(),
-        memory=PersistentMemory(db_path),
+    cfg = AgentConfig(
+        name="analyst",
+        llm=LLMConfig(model="openai/gpt-4o"),
+        prompt="You are a data analyst...",
+        tools=["shell", "file_read"],
     )
-    reply = agent.run("Analyse sales.csv")
+    agent = BaseAgent(agent_config=cfg, provider=provider, session=session, memory=memory)
+
+For backwards compatibility, subclassing with class-level ``name``,
+``system_prompt``, and ``tool_names`` still works — those values are used when
+no :class:`~emo.config.AgentConfig` is provided.
 """
 
 from __future__ import annotations
 
 from typing import Any, Callable
 
+from emo.config.models import AgentConfig
 from emo.memory import BaseMemory, BasePersistentMemory, SessionMemory, PersistentMemory
 from emo.providers import BaseLLMProvider, LLMResponse
 from emo.tools import BaseTool, registry as _global_registry
@@ -38,9 +32,6 @@ from emo.tools import BaseTool, registry as _global_registry
 
 class BaseAgent:
     """Core ReAct-style agent loop.
-
-    All logic lives here. Subclasses only set class-level metadata:
-    ``name``, ``system_prompt``, and optionally ``tool_names``.
 
     Constructor arguments
     ---------------------
@@ -50,14 +41,22 @@ class BaseAgent:
         Any :class:`~emo.memory.BaseMemory` implementation.
     memory:
         Any :class:`~emo.memory.BasePersistentMemory` implementation.
+    agent_config:
+        Optional :class:`~emo.config.AgentConfig`. When provided, ``name``,
+        ``prompt``, ``tools``, and ``max_iterations`` are all read from it.
+        When omitted, the class-level attributes (``name``, ``system_prompt``,
+        ``tool_names``) are used — preserving backwards compatibility.
     extra_context:
         Additional text appended to the system prompt (skills, memory summary).
     tool_names:
-        Override the class-level ``tool_names`` for this instance.
+        Explicit tool name list — overrides both ``agent_config.tools`` and the
+        class-level ``tool_names`` when provided.
     max_iterations:
-        Maximum tool-call loops before giving up (default 20).
+        Maximum tool-call loops before giving up.  Ignored when ``agent_config``
+        is supplied (use ``agent_config.llm.max_iterations`` instead).
     """
 
+    # ── Class-level defaults (used when no AgentConfig is provided) ───────────
     name: str = "base"
     system_prompt: str = "You are a helpful AI assistant."
     tool_names: list[str] | None = None   # None = all tools in registry
@@ -67,6 +66,7 @@ class BaseAgent:
         provider: BaseLLMProvider,
         session: BaseMemory,
         memory: BasePersistentMemory,
+        agent_config: AgentConfig | None = None,
         extra_context: str = "",
         tool_names: list[str] | None = None,
         max_iterations: int = 20,
@@ -75,10 +75,18 @@ class BaseAgent:
         self.session = session
         self.memory = memory
         self.extra_context = extra_context
-        self.max_iterations = max_iterations
+        self.agent_config = agent_config
 
-        # Instance-level tool_names override class-level if provided
-        effective_names = tool_names if tool_names is not None else self.tool_names
+        # Resolve identity and behaviour from agent_config or class-level attrs
+        if agent_config is not None:
+            self.name = agent_config.name or self.__class__.name
+            self.system_prompt = agent_config.prompt or self.__class__.system_prompt
+            self.max_iterations = agent_config.llm.max_iterations
+            effective_names = tool_names if tool_names is not None else agent_config.tools
+        else:
+            self.max_iterations = max_iterations
+            effective_names = tool_names if tool_names is not None else self.__class__.tool_names
+
         self._tools: list[BaseTool] = self._resolve_tools(effective_names)
 
     # ── Public API ────────────────────────────────────────────────────────────
@@ -88,12 +96,7 @@ class BaseAgent:
         user_input: str,
         on_token: Callable[[str], None] | None = None,
     ) -> str:
-        """Process *user_input* and return the final assistant reply.
-
-        Args:
-            user_input: The user's message.
-            on_token: Optional callback invoked with each streamed text token.
-        """
+        """Process *user_input* and return the final assistant reply."""
         self.session.add("user", user_input)
 
         for _ in range(self.max_iterations):
@@ -128,10 +131,7 @@ class BaseAgent:
     # ── Overridable hooks ─────────────────────────────────────────────────────
 
     def build_system_prompt(self) -> str:
-        """Return the full system prompt string.
-
-        Override to customise how system context is assembled.
-        """
+        """Return the full system prompt string."""
         parts = [self.system_prompt]
         if self.extra_context:
             parts.append(self.extra_context)
