@@ -107,6 +107,14 @@ class DeleteMsg:
     session_id: str = ""
 
 
+@dataclass
+class RenameSessionMsg:
+    """Rename a session."""
+    type: Literal["rename_session"] = "rename_session"
+    session_id: str = ""
+    title: str = ""
+
+
 # ── Server → Client ───────────────────────────────────────────────────────────
 
 @dataclass
@@ -425,6 +433,7 @@ _CLIENT_TYPES = {
     "new_session": NewSessionMsg,
     "list": ListMsg,
     "delete": DeleteMsg,
+    "rename_session": RenameSessionMsg,
     "get_config": GetConfigMsg,
     "set_config": SetConfigMsg,
     "list_agents": ListAgentsMsg,

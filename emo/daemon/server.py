@@ -88,6 +88,7 @@ from emo.daemon.protocol import (
     PairChallengeMsg,
     PairPinMsg,
     PairRequestMsg,
+    RenameSessionMsg,
     SessionCreatedMsg,
     SessionDeletedMsg,
     SessionInfo,
@@ -579,6 +580,8 @@ class DaemonServer:
             await self._handle_list(ws)
         elif isinstance(msg, DeleteMsg):
             await self._handle_delete(ws, msg)
+        elif isinstance(msg, RenameSessionMsg):
+            await self._handle_rename_session(ws, msg)
         elif isinstance(msg, ChatMsg):
             await self._handle_chat(ws, msg)
         elif isinstance(msg, GetConfigMsg):
@@ -640,6 +643,18 @@ class DaemonServer:
                     session_id=msg.session_id,
                 ).to_json()
             )
+
+    async def _handle_rename_session(self, ws: ServerConnection, msg: RenameSessionMsg) -> None:
+        if not msg.session_id or not msg.title.strip():
+            await ws.send(ErrorMsg(message="rename_session: session_id and title are required").to_json())
+            return
+        session = self._sessions.get(msg.session_id)
+        if session is None:
+            await ws.send(ErrorMsg(message=f"Session {msg.session_id!r} not found", session_id=msg.session_id).to_json())
+            return
+        session.title = msg.title.strip()
+        session._store.update_session_title_and_ts(session.id, session.title, session.updated_at)
+        await ws.send(OkMsg(message="renamed").to_json())
 
     async def _handle_chat(self, ws: ServerConnection, msg: ChatMsg) -> None:
         # Resolve / create session

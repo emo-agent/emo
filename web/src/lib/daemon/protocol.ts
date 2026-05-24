@@ -33,6 +33,12 @@ export interface DeleteMsg {
 	session_id: string;
 }
 
+export interface RenameSessionMsg {
+	type: 'rename_session';
+	session_id: string;
+	title: string;
+}
+
 export type GetConfigMsg = { type: 'get_config' };
 export type SetConfigMsg = { type: 'set_config'; patch: Record<string, unknown> };
 export type ListAgentsMsg = { type: 'list_agents' };
@@ -54,6 +60,7 @@ export type ClientMsg =
 	| NewSessionMsg
 	| ListMsg
 	| DeleteMsg
+	| RenameSessionMsg
 	| GetConfigMsg
 	| SetConfigMsg
 	| ListAgentsMsg
@@ -90,6 +97,15 @@ export interface ToolMsg {
 	session_id: string;
 	name: string;
 	preview: string;
+	input?: Record<string, unknown>;
+	output?: string;
+}
+
+export interface AgentMsg {
+	type: 'agent';
+	session_id: string;
+	name: string;
+	action: string; // e.g. 'routing', 'executing', 'done'
 }
 
 export interface DoneMsg {
@@ -138,6 +154,7 @@ export type ServerMsg =
 	| AuthOkMsg
 	| TokenMsg
 	| ToolMsg
+	| AgentMsg
 	| DoneMsg
 	| ErrorMsg
 	| SessionsMsg
@@ -152,11 +169,40 @@ export type ServerMsg =
 	| OkMsg;
 
 // Domain types
+
+export interface ToolCall {
+	id: string;
+	name: string;
+	preview: string;
+	input?: Record<string, unknown>;
+	output?: string;
+	started_at: number;
+	finished_at?: number;
+}
+
+export interface AgentAction {
+	id: string;
+	name: string;
+	action: string;
+	started_at: number;
+	finished_at?: number;
+}
+
+export interface MessageStats {
+	agent_name?: string;
+	started_at: number;
+	finished_at?: number;
+	token_count?: number;
+}
+
 export interface StoredMessage {
 	id: string;
-	role: 'user' | 'assistant';
+	role: 'user' | 'assistant' | 'system';
 	content: string;
 	created_at: number;
+	tool_calls?: ToolCall[];
+	agent_actions?: AgentAction[];
+	stats?: MessageStats;
 }
 
 export interface SessionData {

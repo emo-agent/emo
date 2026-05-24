@@ -140,11 +140,152 @@
 		}, 0);
 	}
 
+	// ── Command handler ───────────────────────────────────────────────────────
+
+	/** Returns true if the text was a /command and was handled locally. */
+	function handleCommand(text: string): boolean {
+		if (!text.startsWith('/')) return false;
+
+		const parts = text.trim().split(/\s+/);
+		const name = parts[0].toLowerCase();
+
+		// Ensure there's an active session to post into; create one if needed
+		function ensureSession() {
+			if (!daemon.activeSessionId) daemon.newSession();
+		}
+
+		switch (name) {
+			case '/help': {
+				ensureSession();
+				daemon.postSystemMessage(
+					`**Available commands**
+
+| Command | Description |
+|---|---|
+| \`/help\` | Show this help |
+| \`/new\` | Start a new session |
+| \`/model [name]\` | Show or switch model |
+| \`/agent [name]\` | Force a specific agent |
+| \`/auto\` | Return to automatic agent routing |
+| \`/agents\` | List available agents |
+| \`/skills\` | List loaded skills |
+| \`/status\` | Show session stats |`
+				);
+				return true;
+			}
+
+			case '/new': {
+				daemon.newSession();
+				return true;
+			}
+
+			case '/model': {
+				ensureSession();
+				if (parts.length < 2) {
+					const model =
+						(daemon.configData?.agent as Record<string, unknown> | undefined)?.llm as Record<string, unknown> | undefined;
+					const name = model?.model ?? 'unknown';
+					daemon.postSystemMessage(`Current model: \`${name}\``);
+				} else {
+					daemon.postSystemMessage(
+						`⚠️ Model switching via UI is not yet supported. Edit your config in Settings → Config.`
+					);
+				}
+				return true;
+			}
+
+			case '/agent': {
+				ensureSession();
+				if (parts.length < 2) {
+					const current = daemon.forcedAgent ?? 'auto (supervisor routing)';
+					daemon.postSystemMessage(`Current agent: \`${current}\``);
+				} else {
+					const agentName = parts[1].toLowerCase();
+					const known = daemon.agents.map((a) => a.name);
+					if (known.length > 0 && !known.includes(agentName)) {
+						daemon.postSystemMessage(
+							`Unknown agent \`${agentName}\`. Available: ${known.map((n) => `\`${n}\``).join(', ')}`
+						);
+					} else {
+						daemon.setForcedAgent(agentName);
+						daemon.postSystemMessage(`Agent forced to: \`${agentName}\``);
+					}
+				}
+				return true;
+			}
+
+			case '/auto': {
+				ensureSession();
+				daemon.setForcedAgent(null);
+				daemon.postSystemMessage('Automatic supervisor routing enabled.');
+				return true;
+			}
+
+			case '/agents': {
+				ensureSession();
+				if (daemon.agents.length === 0) {
+					daemon.postSystemMessage('No agents registered.');
+				} else {
+					const current = daemon.forcedAgent ?? null;
+					const lines = daemon.agents.map((a) => {
+						const marker = a.name === current ? ' ← active' : '';
+						return `- **${a.name}**${marker} *(${a.source})*`;
+					});
+					daemon.postSystemMessage(`**Available agents**\n\n${lines.join('\n')}`);
+				}
+				return true;
+			}
+
+			case '/skills': {
+				ensureSession();
+				if (daemon.skills.length === 0) {
+					daemon.postSystemMessage('No skills loaded.');
+				} else {
+					const lines = daemon.skills.map((s) => `- **${s.name}** — ${s.summary}`);
+					daemon.postSystemMessage(`**Loaded skills**\n\n${lines.join('\n')}`);
+				}
+				return true;
+			}
+
+			case '/status': {
+				ensureSession();
+				const session = daemon.activeSession;
+				if (!session) {
+					daemon.postSystemMessage('No active session.');
+				} else {
+					const msgCount = session.messages.filter((m) => m.role !== 'system').length;
+					const created = new Date(session.created_at * 1000).toLocaleString();
+					const updated = new Date(session.updated_at * 1000).toLocaleString();
+					daemon.postSystemMessage(
+						`**Session status**\n\n- **ID**: \`${session.id}\`\n- **Title**: ${session.title}\n- **Messages**: ${msgCount}\n- **Created**: ${created}\n- **Updated**: ${updated}`
+					);
+				}
+				return true;
+			}
+
+			default:
+				// Unknown /command — show error rather than sending to LLM
+				ensureSession();
+				daemon.postSystemMessage(
+					`Unknown command \`${name}\`. Type \`/help\` to see available commands.`
+				);
+				return true;
+		}
+	}
+
 	// ── Submit ────────────────────────────────────────────────────────────────
 
 	function submit() {
 		const text = draft.trim();
 		if (!text || daemon.connectionState !== 'connected') return;
+
+		// Intercept /commands — handle locally, no LLM call
+		if (handleCommand(text)) {
+			draft = '';
+			hideAutocomplete();
+			if (textareaEl) textareaEl.style.height = '48px';
+			return;
+		}
 
 		let agent: string | undefined;
 		let content = text;

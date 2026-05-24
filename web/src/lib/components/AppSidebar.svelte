@@ -7,6 +7,9 @@
 		ChevronDown,
 		ChevronRight,
 		Trash2,
+		Pencil,
+		Check,
+		X,
 		MessagesSquare,
 		Settings,
 		Bot,
@@ -35,6 +38,35 @@
 
 	// ── Sessions ───────────────────────────────────────────────────────────────
 	let sessionsOpen = $state(true);
+
+	// Inline rename state
+	let editingSessionId = $state<string | null>(null);
+	let editingTitle = $state('');
+	let editInput = $state<HTMLInputElement | null>(null);
+
+	function startEdit(session: { id: string; title: string }, e: Event) {
+		e.stopPropagation();
+		editingSessionId = session.id;
+		editingTitle = session.title;
+		// Focus input on next tick
+		setTimeout(() => editInput?.select(), 0);
+	}
+
+	function commitEdit() {
+		if (editingSessionId && editingTitle.trim()) {
+			daemon.renameSession(editingSessionId, editingTitle.trim());
+		}
+		editingSessionId = null;
+	}
+
+	function cancelEdit() {
+		editingSessionId = null;
+	}
+
+	function onEditKeydown(e: KeyboardEvent) {
+		if (e.key === 'Enter') { e.preventDefault(); commitEdit(); }
+		if (e.key === 'Escape') cancelEdit();
+	}
 
 	function formatRelativeTime(ts: number): string {
 		const now = Date.now() / 1000;
@@ -126,31 +158,68 @@
 								? 'bg-sidebar-accent'
 								: ''}"
 						>
-							<button
-								onclick={() => {
-									daemon.selectSession(session.id);
-									if (page.url.pathname !== '/') goto('/');
-								}}
-								class="flex w-full items-center gap-2 px-3 py-2 text-left"
-							>
-								<MessagesSquare class="h-5 w-5 shrink-0 text-muted-foreground" />
-								<div class="min-w-0 flex-1">
-									<p class="truncate text-sm font-medium">{session.title}</p>
-									<p class="text-xs text-muted-foreground">
-										{formatRelativeTime(session.updated_at)}
-									</p>
+							{#if editingSessionId === session.id}
+								<!-- Inline edit mode -->
+								<div class="flex items-center gap-1 px-2 py-1.5">
+									<MessagesSquare class="h-5 w-5 shrink-0 text-muted-foreground" />
+									<input
+										bind:this={editInput}
+										bind:value={editingTitle}
+										onkeydown={onEditKeydown}
+										onblur={commitEdit}
+										class="min-w-0 flex-1 rounded bg-background px-1.5 py-0.5 text-sm outline-none ring-1 ring-ring"
+									/>
+									<button
+										type="button"
+										onclick={commitEdit}
+										class="flex h-5 w-5 shrink-0 items-center justify-center rounded text-muted-foreground hover:text-foreground"
+										aria-label="Save"
+									><Check class="h-3.5 w-3.5" /></button>
+									<button
+										type="button"
+										onclick={cancelEdit}
+										class="flex h-5 w-5 shrink-0 items-center justify-center rounded text-muted-foreground hover:text-foreground"
+										aria-label="Cancel"
+									><X class="h-3.5 w-3.5" /></button>
 								</div>
-							</button>
-							<button
-								onclick={(e) => {
-									e.stopPropagation();
-									daemon.deleteSession(session.id);
-								}}
-								class="absolute top-1/2 right-2 hidden h-5 w-5 -translate-y-1/2 items-center justify-center rounded text-muted-foreground group-hover/item:flex hover:text-destructive"
-								aria-label="Delete session"
-							>
-								<Trash2 class="h-3.5 w-3.5" />
-							</button>
+							{:else}
+								<!-- Normal display mode -->
+								<button
+									onclick={() => {
+										daemon.selectSession(session.id);
+										if (page.url.pathname !== '/') goto('/');
+									}}
+									class="flex w-full items-center gap-2 px-3 py-2 text-left"
+								>
+									<MessagesSquare class="h-5 w-5 shrink-0 text-muted-foreground" />
+									<div class="min-w-0 flex-1">
+										<p class="truncate text-sm font-medium">{session.title}</p>
+										<p class="text-xs text-muted-foreground">
+											{formatRelativeTime(session.updated_at)}
+										</p>
+									</div>
+								</button>
+								<!-- Hover actions: edit + delete -->
+								<div class="absolute top-1/2 right-1 hidden -translate-y-1/2 items-center gap-0.5 group-hover/item:flex">
+									<button
+										onclick={(e) => startEdit(session, e)}
+										class="flex h-5 w-5 items-center justify-center rounded text-muted-foreground hover:text-foreground"
+										aria-label="Rename session"
+									>
+										<Pencil class="h-3.5 w-3.5" />
+									</button>
+									<button
+										onclick={(e) => {
+											e.stopPropagation();
+											daemon.deleteSession(session.id);
+										}}
+										class="flex h-5 w-5 items-center justify-center rounded text-muted-foreground hover:text-destructive"
+										aria-label="Delete session"
+									>
+										<Trash2 class="h-3.5 w-3.5" />
+									</button>
+								</div>
+							{/if}
 						</div>
 					{/each}
 				{/if}

@@ -5,8 +5,12 @@
 
 	let scrollEl = $state<HTMLElement | null>(null);
 
+	// Scroll to bottom when new messages arrive or content streams in
 	$effect(() => {
+		// track both message count and the content of the last message (streaming tokens)
 		const _ = daemon.messages.length;
+		const lastMsg = daemon.messages[daemon.messages.length - 1];
+		const __ = lastMsg?.content?.length ?? 0;
 		if (scrollEl) {
 			scrollEl.scrollTop = scrollEl.scrollHeight;
 		}

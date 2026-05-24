@@ -17,6 +17,8 @@ import type {
 	ServerMsg,
 	SessionData,
 	StoredMessage,
+	ToolCall,
+	AgentAction,
 	AgentEntry,
 	SkillEntry,
 	MCPEntry
@@ -44,6 +46,7 @@ function createDaemonStore() {
 	let mcps = $state<MCPEntry[]>([]);
 	let activeAgentConfig = $state<{ name: string; config: Record<string, unknown> } | null>(null);
 	let activeSkillContent = $state<{ name: string; content: string } | null>(null);
+	let forcedAgent = $state<string | null>(null); // set by /agent command
 
 	// ── Derived ─────────────────────────────────────────────────────────────
 	const sortedSessions = $derived(
@@ -224,17 +227,66 @@ function createDaemonStore() {
 					const msgs = [...s.messages];
 					const last = msgs[msgs.length - 1];
 					if (last && last.role === 'assistant') {
-						msgs[msgs.length - 1] = { ...last, content: msg.content };
+						const tokenCount = Math.ceil(msg.content.length / 4);
+						msgs[msgs.length - 1] = {
+							...last,
+							content: msg.content,
+							stats: {
+								agent_name: msg.agent_name,
+								started_at: last.created_at,
+								finished_at: Date.now() / 1000,
+								token_count: tokenCount
+							}
+						};
 					}
 					return { ...s, messages: msgs, updated_at: Date.now() / 1000 };
 				});
 				break;
 			}
 
-			case 'error':
-				isLoading = false;
-				error = msg.message;
-				break;
+		case 'tool': {
+			// Attach tool call to the last assistant message in this session
+			sessions = sessions.map((s) => {
+				if (s.id !== msg.session_id) return s;
+				const msgs = [...s.messages];
+				const last = msgs[msgs.length - 1];
+				if (last && last.role === 'assistant') {
+					const toolCall: ToolCall = {
+						id: crypto.randomUUID(),
+						name: msg.name,
+						preview: msg.preview,
+						input: msg.input,
+						output: msg.output,
+						started_at: Date.now() / 1000
+					};
+					const existing = last.tool_calls ?? [];
+					msgs[msgs.length - 1] = { ...last, tool_calls: [...existing, toolCall] };
+				}
+				return { ...s, messages: msgs };
+			});
+			break;
+		}
+
+		case 'agent': {
+			// Attach agent action to the last assistant message in this session
+			sessions = sessions.map((s) => {
+				if (s.id !== msg.session_id) return s;
+				const msgs = [...s.messages];
+				const last = msgs[msgs.length - 1];
+				if (last && last.role === 'assistant') {
+					const agentAction: AgentAction = {
+						id: crypto.randomUUID(),
+						name: msg.name,
+						action: msg.action,
+						started_at: Date.now() / 1000
+					};
+					const existing = last.agent_actions ?? [];
+					msgs[msgs.length - 1] = { ...last, agent_actions: [...existing, agentAction] };
+				}
+				return { ...s, messages: msgs };
+			});
+			break;
+		}
 
 			case 'config_data':
 				configData = msg.data;
@@ -276,9 +328,19 @@ function createDaemonStore() {
 		_send({ type: 'delete', session_id: id });
 	}
 
+	function renameSession(id: string, title: string) {
+		if (!title.trim()) return;
+		// Optimistically update local state
+		sessions = sessions.map((s) => s.id === id ? { ...s, title: title.trim() } : s);
+		_send({ type: 'rename_session', session_id: id, title: title.trim() });
+	}
+
 	function sendMessage(content: string, agent?: string) {
 		if (!content.trim()) return;
 		error = null;
+
+		// Use forced agent if no explicit agent override
+		const resolvedAgent = agent ?? forcedAgent ?? undefined;
 
 		const sid = activeSessionId ?? '';
 
@@ -309,10 +371,29 @@ function createDaemonStore() {
 		// In practice the daemon responds so fast this is fine for now.
 
 		isLoading = true;
-		_send({ type: 'chat', session_id: sid, content: content.trim(), agent });
+		_send({ type: 'chat', session_id: sid, content: content.trim(), agent: resolvedAgent });
 	}
 
-	// ── Config / Agent / Skill / MCP actions ─────────────────────────────────
+		// ── Config / Agent / Skill / MCP actions ─────────────────────────────────
+
+	/** Inject a local system message into the active session (no LLM call). */
+	function postSystemMessage(content: string) {
+		const sid = activeSessionId;
+		if (!sid) return;
+		const msg: StoredMessage = {
+			id: crypto.randomUUID(),
+			role: 'system',
+			content,
+			created_at: Date.now() / 1000
+		};
+		sessions = sessions.map((s) =>
+			s.id === sid ? { ...s, messages: [...s.messages, msg] } : s
+		);
+	}
+
+	function setForcedAgent(name: string | null) {
+		forcedAgent = name;
+	}
 
 	function fetchConfig() { _send({ type: 'get_config' }); }
 	function setConfig(patch: Record<string, unknown>) { _send({ type: 'set_config', patch }); }
@@ -360,6 +441,7 @@ function createDaemonStore() {
 		get mcps() { return mcps; },
 		get activeAgentConfig() { return activeAgentConfig; },
 		get activeSkillContent() { return activeSkillContent; },
+		get forcedAgent() { return forcedAgent; },
 		// Actions
 		connect,
 		disconnect,
@@ -367,7 +449,10 @@ function createDaemonStore() {
 		newSession,
 		selectSession,
 		deleteSession,
+		renameSession,
 		sendMessage,
+		postSystemMessage,
+		setForcedAgent,
 		fetchConfig,
 		setConfig,
 		fetchAgents,
