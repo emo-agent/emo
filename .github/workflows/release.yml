@@ -1,0 +1,200 @@
+name: Release
+
+# Triggers:
+#   • Push a version tag:  git tag v0.2.0 && git push origin v0.2.0
+#   • Manual run from the Actions UI (workflow_dispatch) — useful for testing
+on:
+  push:
+    tags:
+      - "v*.*.*"
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Version tag to publish (e.g. v0.1.0)"
+        required: true
+        default: "v0.1.0"
+
+# Only one release job should run at a time per tag
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  # ── Build matrix ─────────────────────────────────────────────────────────────
+  #
+  # Target matrix:
+  #   linux   x86_64   → ubuntu-latest  (x86_64)
+  #   linux   aarch64  → ubuntu-24.04-arm (GitHub-hosted ARM runner)
+  #   macos   x86_64   → macos-13       (last Intel macOS runner)
+  #   macos   arm64    → macos-latest   (Apple Silicon, M-series)
+  #   windows x86_64   → windows-latest
+  #
+  # Note: Linux aarch64 and Windows ARM64 native runners are available on
+  # GitHub-hosted runners as of 2024. Adjust if your plan does not include them.
+
+  build:
+    name: "Build / ${{ matrix.target }}"
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target:  linux-x86_64
+            runner:  ubuntu-latest
+            os:      linux
+            arch:    x86_64
+
+          - target:  linux-aarch64
+            runner:  ubuntu-24.04-arm
+            os:      linux
+            arch:    aarch64
+
+          - target:  macos-x86_64
+            runner:  macos-13
+            os:      macos
+            arch:    x86_64
+
+          - target:  macos-arm64
+            runner:  macos-latest
+            os:      macos
+            arch:    arm64
+
+          - target:  windows-x86_64
+            runner:  windows-latest
+            os:      windows
+            arch:    x86_64
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install emo + build dependencies
+        run: pip install -e ".[build]"
+
+      - name: Build binary with PyInstaller
+        run: pyinstaller emo.spec --distpath dist --workpath build/pyinstaller
+
+      # ── Platform-specific packaging ─────────────────────────────────────────
+      # Linux / macOS → .tar.gz  (executable named "emo")
+      # Windows       → .zip     (executable named "emo.exe")
+
+      - name: Package binary (Linux / macOS)
+        if: matrix.os != 'windows'
+        run: |
+          ASSET="emo-${{ matrix.target }}.tar.gz"
+          tar -czf "$ASSET" -C dist emo
+          echo "ASSET=${ASSET}" >> "$GITHUB_ENV"
+
+      - name: Package binary (Windows)
+        if: matrix.os == 'windows'
+        shell: pwsh
+        run: |
+          $asset = "emo-${{ matrix.target }}.zip"
+          Compress-Archive -Path dist\emo.exe -DestinationPath $asset
+          echo "ASSET=$asset" | Out-File -FilePath $env:GITHUB_ENV -Append
+
+      - name: Generate SHA-256 checksum
+        shell: bash
+        run: |
+          if [[ "${{ matrix.os }}" == "windows" ]]; then
+            certutil -hashfile "$ASSET" SHA256 | grep -v "^CertUtil" | grep -v "^SHA" | tr -d ' \r\n' > "${ASSET}.sha256"
+          else
+            shasum -a 256 "$ASSET" | awk '{print $1}' > "${ASSET}.sha256"
+          fi
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: emo-${{ matrix.target }}
+          path: |
+            ${{ env.ASSET }}
+            ${{ env.ASSET }}.sha256
+          if-no-files-found: error
+          retention-days: 1
+
+  # ── GitHub Release ────────────────────────────────────────────────────────────
+  publish:
+    name: "Publish GitHub Release"
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write   # needed to create releases and upload assets
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Resolve version tag
+        id: version
+        run: |
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            echo "tag=${{ github.event.inputs.tag }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "tag=${GITHUB_REF_NAME}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Download all build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: release-assets
+          merge-multiple: true
+
+      - name: List assets
+        run: ls -lh release-assets/
+
+      - name: Build release notes
+        id: notes
+        run: |
+          VERSION="${{ steps.version.outputs.tag }}"
+          cat > release-notes.md <<EOF
+          ## emo ${VERSION}
+
+          ### Installation
+
+          **Quick install (Linux / macOS)**
+          \`\`\`bash
+          curl -fsSL https://raw.githubusercontent.com/${{ github.repository }}/main/install.sh | bash
+          \`\`\`
+
+          **Manual binary download**
+
+          | Platform | Architecture | Download |
+          |----------|-------------|---------|
+          | Linux    | x86_64      | [emo-linux-x86_64.tar.gz](https://github.com/${{ github.repository }}/releases/download/${VERSION}/emo-linux-x86_64.tar.gz) |
+          | Linux    | aarch64     | [emo-linux-aarch64.tar.gz](https://github.com/${{ github.repository }}/releases/download/${VERSION}/emo-linux-aarch64.tar.gz) |
+          | macOS    | x86_64      | [emo-macos-x86_64.tar.gz](https://github.com/${{ github.repository }}/releases/download/${VERSION}/emo-macos-x86_64.tar.gz) |
+          | macOS    | arm64       | [emo-macos-arm64.tar.gz](https://github.com/${{ github.repository }}/releases/download/${VERSION}/emo-macos-arm64.tar.gz) |
+          | Windows  | x86_64      | [emo-windows-x86_64.zip](https://github.com/${{ github.repository }}/releases/download/${VERSION}/emo-windows-x86_64.zip) |
+
+          Verify a download:
+          \`\`\`bash
+          shasum -a 256 -c emo-linux-x86_64.tar.gz.sha256
+          \`\`\`
+
+          ### First run
+          \`\`\`bash
+          tar -xzf emo-<platform>.tar.gz
+          ./emo setup   # interactive config wizard
+          ./emo
+          \`\`\`
+          EOF
+
+      - name: Create GitHub Release and upload assets
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          VERSION="${{ steps.version.outputs.tag }}"
+
+          # Create the release (mark as draft first so all assets upload before it goes live)
+          gh release create "$VERSION" \
+            --title "emo ${VERSION}" \
+            --notes-file release-notes.md \
+            --draft \
+            release-assets/*
+
+          # Publish (un-draft) once all assets are attached
+          gh release edit "$VERSION" --draft=false

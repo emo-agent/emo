@@ -1,0 +1,53 @@
+# Emo configuration
+# Copy to config.yaml (in project root) or ~/.emo/config.yaml
+
+# ── Option A: Direct provider ──────────────────────────────────────────────
+# Use the provider/model format. No api_base needed.
+#
+model: "openai/gpt-4o"
+# model: "anthropic/claude-3-5-sonnet-20241022"
+# model: "ollama/llama3.2"
+
+# ── Option B: OpenRouter (or any OpenAI-compatible endpoint) ───────────────
+# Set api_base + api_key, then write JUST the model name (no prefix).
+#
+# model: "google/gemini-2.0-flash-001"
+# model: "anthropic/claude-3.5-sonnet"
+# model: "mistralai/mistral-large"
+# model: "meta-llama/llama-3.1-70b-instruct"
+# api_base: "https://openrouter.ai/api/v1"
+# api_key: "sk-or-..."
+#
+# Other compatible endpoints:
+# api_base: "http://localhost:1234/v1"   # LM Studio
+# api_base: "http://localhost:11434/v1"  # Ollama REST
+
+# api_base: null   # uncomment and set to enable
+# api_key: null    # or use OPENAI_API_KEY env var
+
+# ── Agent settings ─────────────────────────────────────────────────────────
+agent:
+  max_iterations: 20
+  context_window: 40000
+  temperature: 0.7
+
+# ── Memory ─────────────────────────────────────────────────────────────────
+memory:
+  db_path: "~/.emo/memory.db"
+  max_facts: 200
+  summarize_after: 10    # auto-summarise session every N turns
+
+# ── Tools ──────────────────────────────────────────────────────────────────
+tools:
+  shell: true
+  file_read: true
+  file_write: true
+  web_fetch: true
+
+# ── Skills ─────────────────────────────────────────────────────────────────
+# Drop .md files in this directory — they're injected into the system prompt.
+skills_dir: "~/.emo/skills"
+
+# ── Supervisor ─────────────────────────────────────────────────────────────
+supervisor:
+  enabled: true   # auto-route to code/research/general agent

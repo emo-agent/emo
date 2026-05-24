@@ -1,0 +1,124 @@
+name: CI
+
+on:
+  push:
+    branches: ["main", "master"]
+  pull_request:
+    branches: ["main", "master"]
+
+jobs:
+  # ── Unit tests ──────────────────────────────────────────────────────────────
+  test:
+    name: "Test / Python ${{ matrix.python-version }} / ${{ matrix.os }}"
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+        python-version: ["3.9", "3.10", "3.11", "3.12"]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+
+      - name: Install emo + dev dependencies
+        run: pip install -e ".[dev]"
+
+      - name: Run tests
+        run: pytest --tb=short -q
+
+  # ── Installer smoke test (pip method) ───────────────────────────────────────
+  #
+  # Tests the pip-based install path end-to-end by:
+  #   1. Packing the checked-out source into a tarball (same layout GitHub produces).
+  #   2. Serving it on localhost:8765 via Python's http.server.
+  #   3. Patching the archive URL in install.sh to point at localhost.
+  #   4. Running the patched installer twice: normal invocation + curl-pipe simulation.
+  install-script-pip:
+    name: "Installer (pip) / ${{ matrix.os }}"
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Build local source tarball (mirrors GitHub archive layout)
+        run: |
+          mkdir -p /tmp/emo-serve
+          tar -czf /tmp/emo-serve/main.tar.gz \
+            --transform 's|^\.|emo-main|' \
+            --exclude='.git' \
+            --exclude='.venv' \
+            --exclude='__pycache__' \
+            .
+
+      - name: Start local HTTP server
+        run: |
+          python3 -m http.server 8765 --directory /tmp/emo-serve &
+          echo $! > /tmp/http-server.pid
+          for i in $(seq 1 20); do
+            curl -sf http://localhost:8765/main.tar.gz -o /dev/null && break
+            sleep 0.5
+          done
+
+      - name: Patch install.sh — redirect archive URL to localhost
+        run: |
+          # Redirect both the "latest branch" and "tagged release" archive URLs
+          sed \
+            -e 's|https://github.com/${EMO_GITHUB_REPO}/archive/refs/heads/main.tar.gz|http://localhost:8765/main.tar.gz|g' \
+            -e 's|https://github.com/${EMO_GITHUB_REPO}/archive/refs/tags/${VERSION}.tar.gz|http://localhost:8765/main.tar.gz|g' \
+            install.sh > /tmp/install-patched.sh
+
+      - name: Run pip installer (non-interactive, custom prefix)
+        run: bash /tmp/install-patched.sh --method pip --prefix /tmp/emo-pip
+
+      - name: Verify emo binary
+        run: /tmp/emo-pip/bin/emo --help
+
+      - name: Simulate curl-pipe install (non-interactive)
+        run: |
+          rm -rf /tmp/emo-pip2
+          cat /tmp/install-patched.sh | EMO_METHOD=pip EMO_PREFIX=/tmp/emo-pip2 bash
+          /tmp/emo-pip2/bin/emo --help
+
+      - name: Stop HTTP server
+        if: always()
+        run: kill "$(cat /tmp/http-server.pid)" 2>/dev/null || true
+
+  # ── Installer smoke test (binary method) ────────────────────────────────────
+  #
+  # Runs after release binaries are built (depends on the release workflow
+  # having already published assets). On PRs we skip this job to avoid
+  # needing a real release — it only runs on pushes to main/master.
+  install-script-binary:
+    name: "Installer (binary) / ${{ matrix.os }}"
+    runs-on: ${{ matrix.os }}
+    # Only run when there are actual published binaries to download
+    if: github.event_name == 'push'
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run binary installer (non-interactive, latest release)
+        run: |
+          bash install.sh --method binary --prefix /tmp/emo-bin
+
+      - name: Verify emo binary
+        run: /tmp/emo-bin/emo --help
