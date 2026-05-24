@@ -25,11 +25,15 @@ import type {
 // Vite exposes env vars prefixed with VITE_; fall back to the default daemon address.
 const DAEMON_URL: string = (import.meta.env.VITE_EMO_DAEMON_URL as string | undefined) ?? 'ws://127.0.0.1:7777/ws';
 
+const STORAGE_KEY = 'emo_daemon_token';
+
 export type ConnectionState = 'disconnected' | 'connecting' | 'connected' | 'error';
+export type PairingState = 'none' | 'challenge' | 'paired';
 
 function createDaemonStore() {
 	// ── Reactive state ──────────────────────────────────────────────────────
 	let connectionState = $state<ConnectionState>('disconnected');
+	let pairingState = $state<PairingState>('none');
 	let sessions = $state<SessionData[]>([]);
 	let activeSessionId = $state<string | null>(null);
 	let isLoading = $state(false);
@@ -75,13 +79,9 @@ function createDaemonStore() {
 		ws.addEventListener('open', () => {
 			connectionState = 'connected';
 			_retryDelay = 1000;
-			// Load existing sessions from daemon
-			_send({ type: 'list' });
-			// Pre-fetch all settings data so panels have values on first render
-			_send({ type: 'get_config' });
-			_send({ type: 'list_agents' });
-			_send({ type: 'list_skills' });
-			_send({ type: 'list_mcps' });
+			// Kick off the pairing handshake; data requests fire after auth_ok
+			const storedToken = localStorage.getItem(STORAGE_KEY) ?? undefined;
+			_sendRaw({ type: 'pair_request', ...(storedToken ? { token: storedToken } : {}) });
 		});
 
 		ws.addEventListener('message', (ev) => {
@@ -128,7 +128,7 @@ function createDaemonStore() {
 		_retryDelay = Math.min(_retryDelay * 2, 30_000);
 	}
 
-	function _send(msg: ClientMsg) {
+	function _sendRaw(msg: ClientMsg) {
 		if (_ws?.readyState === WebSocket.OPEN) {
 			_ws.send(JSON.stringify(msg));
 		} else {
@@ -137,10 +137,39 @@ function createDaemonStore() {
 		}
 	}
 
+	function _send(msg: ClientMsg) {
+		if (pairingState !== 'paired') {
+			// Queue is not implemented — just warn; normal usage connects first
+			error = 'Not yet authenticated with daemon.';
+			return;
+		}
+		_sendRaw(msg);
+	}
+
 	// ── Message handlers ─────────────────────────────────────────────────────
+
+	function _fetchInitialData() {
+		_send({ type: 'list' });
+		_send({ type: 'get_config' });
+		_send({ type: 'list_agents' });
+		_send({ type: 'list_skills' });
+		_send({ type: 'list_mcps' });
+	}
 
 	function _handleMessage(msg: ServerMsg) {
 		switch (msg.type) {
+			case 'pair_challenge':
+				pairingState = 'challenge';
+				break;
+
+			case 'auth_ok':
+				if (msg.token) {
+					localStorage.setItem(STORAGE_KEY, msg.token);
+				}
+				pairingState = 'paired';
+				_fetchInitialData();
+				break;
+
 			case 'sessions':
 				sessions = msg.sessions;
 				// Preserve active session if still present; default to newest
@@ -231,7 +260,9 @@ function createDaemonStore() {
 		}
 	}
 
-	// ── Public actions ───────────────────────────────────────────────────────
+	function submitPin(pin: string) {
+		_sendRaw({ type: 'pair_pin', pin });
+	}
 
 	function newSession() {
 		_send({ type: 'new_session' });
@@ -302,6 +333,9 @@ function createDaemonStore() {
 		get connectionState() {
 			return connectionState;
 		},
+		get pairingState() {
+			return pairingState;
+		},
 		get sessions() {
 			return sortedSessions;
 		},
@@ -329,6 +363,7 @@ function createDaemonStore() {
 		// Actions
 		connect,
 		disconnect,
+		submitPin,
 		newSession,
 		selectSession,
 		deleteSession,

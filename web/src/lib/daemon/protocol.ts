@@ -3,6 +3,16 @@
  */
 
 // Client → Server
+export interface PairRequestMsg {
+	type: 'pair_request';
+	token?: string; // bearer token from a previous pairing; omit on first connect
+}
+
+export interface PairPinMsg {
+	type: 'pair_pin';
+	pin: string;
+}
+
 export interface ChatMsg {
 	type: 'chat';
 	session_id: string; // empty string = auto-create
@@ -38,6 +48,8 @@ export type SetMCPMsg = { type: 'set_mcp'; name: string; config: Record<string, 
 export type DeleteMCPMsg = { type: 'delete_mcp'; name: string };
 
 export type ClientMsg =
+	| PairRequestMsg
+	| PairPinMsg
 	| ChatMsg
 	| NewSessionMsg
 	| ListMsg
@@ -57,6 +69,16 @@ export type ClientMsg =
 	| DeleteMCPMsg;
 
 // Server → Client
+export interface PairChallengeMsg {
+	type: 'pair_challenge';
+	pin_required: boolean;
+}
+
+export interface AuthOkMsg {
+	type: 'auth_ok';
+	token?: string; // set only on first successful pairing
+}
+
 export interface TokenMsg {
 	type: 'token';
 	session_id: string;
@@ -112,6 +134,8 @@ export type MCPsDataMsg = { type: 'mcps_data'; mcps: MCPEntry[] };
 export type OkMsg = { type: 'ok'; message: string };
 
 export type ServerMsg =
+	| PairChallengeMsg
+	| AuthOkMsg
 	| TokenMsg
 	| ToolMsg
 	| DoneMsg

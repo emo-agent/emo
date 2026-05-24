@@ -5,10 +5,23 @@ discriminates the variant.
 
 Client → Server
 ---------------
+``pair_request``  First message on every connection — carries an optional
+                  bearer token from a previous pairing.
+``pair_pin``      Submit the PIN displayed on the daemon terminal to
+                  complete the pairing handshake.
 ``chat``        Send a user message in a session.
 ``new_session`` Create a new conversation session.
 ``list``        Request the list of all sessions + their messages.
 ``delete``      Delete a session and all its messages.
+
+Server → Client (auth)
+----------------------
+``pair_challenge``  Token absent or invalid — client must show PIN entry UI.
+                    Carries ``{pin_required: true}`` so the client knows
+                    the daemon is waiting for a PIN.
+``auth_ok``         Authentication succeeded.  On first pairing carries a
+                    ``token`` field the client should persist for future
+                    connections.
 
 Server → Client
 ---------------
@@ -47,6 +60,24 @@ def _now() -> float:
 
 
 # ── Client → Server ───────────────────────────────────────────────────────────
+
+@dataclass
+class PairRequestMsg:
+    """First message sent by the client on every new connection.
+
+    ``token`` is the bearer token stored from a previous successful pairing.
+    Omit (or send empty string) on the very first connection.
+    """
+    type: Literal["pair_request"] = "pair_request"
+    token: str = ""
+
+
+@dataclass
+class PairPinMsg:
+    """Submit the PIN shown on the daemon terminal to complete pairing."""
+    type: Literal["pair_pin"] = "pair_pin"
+    pin: str = ""
+
 
 @dataclass
 class ChatMsg:
@@ -353,9 +384,43 @@ class OkMsg:
         return json.dumps({"type": self.type, "message": self.message})
 
 
+@dataclass
+class PairChallengeMsg:
+    """Sent when the client must enter a PIN to authenticate.
+
+    The daemon has printed the PIN to its terminal (stdout).
+    """
+    pin_required: bool = True
+    type: Literal["pair_challenge"] = "pair_challenge"
+
+    def to_json(self) -> str:
+        return json.dumps({"type": self.type, "pin_required": self.pin_required})
+
+
+@dataclass
+class AuthOkMsg:
+    """Authentication succeeded.
+
+    ``token`` is set only on the *first* successful pairing — the client
+    should persist it in ``localStorage`` and include it in future
+    ``pair_request`` messages.  On subsequent connections the field is
+    omitted.
+    """
+    token: str = ""
+    type: Literal["auth_ok"] = "auth_ok"
+
+    def to_json(self) -> str:
+        d: dict[str, Any] = {"type": self.type}
+        if self.token:
+            d["token"] = self.token
+        return json.dumps(d)
+
+
 # ── Decoder ───────────────────────────────────────────────────────────────────
 
 _CLIENT_TYPES = {
+    "pair_request": PairRequestMsg,
+    "pair_pin": PairPinMsg,
     "chat": ChatMsg,
     "new_session": NewSessionMsg,
     "list": ListMsg,

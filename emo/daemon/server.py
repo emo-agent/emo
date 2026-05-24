@@ -40,6 +40,8 @@ from __future__ import annotations
 import asyncio
 import dataclasses
 import logging
+import os
+import secrets
 import sqlite3
 import threading
 import time
@@ -64,6 +66,7 @@ from emo.skills import load_skills
 from emo.daemon.protocol import (
     AgentDataMsg,
     AgentsDataMsg,
+    AuthOkMsg,
     ChatMsg,
     ConfigDataMsg,
     DeleteAgentMsg,
@@ -82,6 +85,9 @@ from emo.daemon.protocol import (
     MCPsDataMsg,
     NewSessionMsg,
     OkMsg,
+    PairChallengeMsg,
+    PairPinMsg,
+    PairRequestMsg,
     SessionCreatedMsg,
     SessionDeletedMsg,
     SessionInfo,
@@ -351,6 +357,16 @@ class DaemonServer:
         self.host = host
         self.port = port
 
+        # ── Pairing / authentication ──────────────────────────────────────────
+        # The bearer token is a URL-safe random string stored in a file next to
+        # the memory DB so it survives daemon restarts.
+        self._token_path = Path(config.memory_db_path).parent / "daemon_token"
+        self._bearer_token: str | None = self._load_bearer_token()
+        # Current pending PIN (if a pairing handshake is in progress); guarded by
+        # a lock because multiple clients may connect simultaneously.
+        self._pending_pin: str | None = None
+        self._pin_lock = threading.Lock()
+
         # Shared infrastructure
         self._persistent_memory = PersistentMemory(config.memory_db_path)
         self._chat_store = ChatStore(config.memory_db_path)
@@ -389,6 +405,72 @@ class DaemonServer:
     def _refresh_context(self) -> None:
         self._extra_context = self._build_extra_context()
         self._supervisor.update_context(self._extra_context)
+
+    # ── Auth / pairing helpers ────────────────────────────────────────────────
+
+    def _load_bearer_token(self) -> str | None:
+        """Load the persisted bearer token from disk, or None if not yet paired."""
+        try:
+            return self._token_path.read_text().strip() or None
+        except FileNotFoundError:
+            return None
+
+    def _save_bearer_token(self, token: str) -> None:
+        self._token_path.parent.mkdir(parents=True, exist_ok=True)
+        self._token_path.write_text(token)
+        # Restrict read permissions to the owner only
+        try:
+            self._token_path.chmod(0o600)
+        except OSError:
+            pass
+        self._bearer_token = token
+
+    def _generate_pin(self) -> str:
+        """Generate a 6-digit numeric PIN and store it as the pending challenge."""
+        pin = str(secrets.randbelow(1_000_000)).zfill(6)
+        with self._pin_lock:
+            self._pending_pin = pin
+        return pin
+
+    def _consume_pin(self, submitted: str) -> bool:
+        """Validate *submitted* against the current pending PIN (one-time use)."""
+        with self._pin_lock:
+            if self._pending_pin and secrets.compare_digest(submitted, self._pending_pin):
+                self._pending_pin = None
+                return True
+        return False
+
+    async def _authenticate(self, ws: ServerConnection, msg: PairRequestMsg) -> bool:
+        """Handle the initial pair_request handshake.
+
+        Returns True if the client is authenticated and may proceed.
+        Sends ``auth_ok`` or ``pair_challenge`` as appropriate.
+        """
+        if self._bearer_token and msg.token:
+            if secrets.compare_digest(msg.token, self._bearer_token):
+                await ws.send(AuthOkMsg().to_json())
+                return True
+        # Token absent or wrong — issue a challenge
+        pin = self._generate_pin()
+        print(f"\n[emo daemon] Pairing request from {ws.remote_address}. PIN: {pin}\n", flush=True)
+        await ws.send(PairChallengeMsg().to_json())
+        return False
+
+    async def _handle_pair_pin(self, ws: ServerConnection, msg: PairPinMsg) -> bool:
+        """Handle a PIN submission.  Returns True if PIN is correct."""
+        if self._consume_pin(msg.pin.strip()):
+            # Issue a new bearer token on first pairing or rotation
+            new_token = secrets.token_urlsafe(32)
+            self._save_bearer_token(new_token)
+            await ws.send(AuthOkMsg(token=new_token).to_json())
+            log.info("Client %s paired successfully.", ws.remote_address)
+            return True
+        await ws.send(ErrorMsg(message="Invalid PIN. Please try again.").to_json())
+        # Re-issue a fresh challenge so the client can try again
+        pin = self._generate_pin()
+        print(f"\n[emo daemon] Wrong PIN — new PIN: {pin}\n", flush=True)
+        await ws.send(PairChallengeMsg().to_json())
+        return False
 
     def _load_persisted_sessions(self) -> None:
         sessions: list[DaemonSession] = []
@@ -454,8 +536,28 @@ class DaemonServer:
         remote = ws.remote_address
         log.info("Client connected: %s", remote)
         try:
+            authenticated = False
             async for raw in ws:
-                await self._dispatch(ws, str(raw))
+                raw = str(raw)
+                # ── Authentication gate ───────────────────────────────────────
+                # The very first message MUST be pair_request.
+                # After authentication succeeds, all subsequent messages flow
+                # through the normal _dispatch path.
+                if not authenticated:
+                    try:
+                        msg = decode_client(raw)
+                    except ValueError as exc:
+                        await ws.send(ErrorMsg(message=str(exc)).to_json())
+                        return
+                    if isinstance(msg, PairRequestMsg):
+                        authenticated = await self._authenticate(ws, msg)
+                    elif isinstance(msg, PairPinMsg):
+                        authenticated = await self._handle_pair_pin(ws, msg)
+                    else:
+                        await ws.send(ErrorMsg(message="Authentication required. Send pair_request first.").to_json())
+                    continue
+                # ── Authenticated path ────────────────────────────────────────
+                await self._dispatch(ws, raw)
         except websockets.exceptions.ConnectionClosedOK:
             pass
         except websockets.exceptions.ConnectionClosedError as exc:
