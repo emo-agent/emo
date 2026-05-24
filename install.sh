@@ -23,6 +23,9 @@ VERSION="${EMO_VERSION:-latest}"   # "latest" resolves to the newest GH release
 METHOD="${EMO_METHOD:-binary}"     # binary | pip
 PREFIX="${EMO_PREFIX:-}"           # install dir; derived from method if empty
 
+# Global — set by install_binary / install_pip, used by _first_run
+EMO_BIN=""
+
 # ── Parse CLI flags ───────────────────────────────────────────────────────────
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -138,7 +141,7 @@ install_binary() {
   tar -xzf "${TMP_DIR}/${ASSET}" -C "$BIN_DIR"
   chmod +x "${BIN_DIR}/emo"
 
-  EMO_BIN="${BIN_DIR}/emo"
+  EMO_BIN="${BIN_DIR}/emo"   # global
   [[ -x "$EMO_BIN" ]] || die "Install failed — binary not found at ${EMO_BIN}."
 
   _patch_shell_path "$BIN_DIR"
@@ -192,9 +195,9 @@ install_pip() {
 
   info "Installing emo ..."
   "${VENV_DIR}/bin/pip" install --quiet --upgrade pip
-  "${VENV_DIR}/bin/pip" install --quiet "$SRC_DIR"
+  "${VENV_DIR}/bin/pip" install --no-input "$SRC_DIR"
 
-  EMO_BIN="${BIN_DIR}/emo"
+  EMO_BIN="${BIN_DIR}/emo"   # global
   [[ -x "$EMO_BIN" ]] || die "Install failed — emo binary not found at ${EMO_BIN}."
 
   _patch_shell_path "$BIN_DIR"
@@ -237,6 +240,7 @@ _patch_shell_path() {
 
 # ── First-run config wizard ───────────────────────────────────────────────────
 _first_run() {
+  [[ -x "$EMO_BIN" ]] || die "Internal error: EMO_BIN not set after install."
   echo ""
   success "emo installed  (method: ${METHOD}, platform: ${PLATFORM})"
   echo ""

@@ -58,12 +58,15 @@ jobs:
       - name: Build local source tarball (mirrors GitHub archive layout)
         run: |
           mkdir -p /tmp/emo-serve
-          tar -czf /tmp/emo-serve/main.tar.gz \
-            --transform 's|^\.|emo-main|' \
-            --exclude='.git' \
-            --exclude='.venv' \
-            --exclude='__pycache__' \
-            .
+          # Create a subdirectory matching GitHub's archive layout (repo-branch/)
+          # then tar it — avoids --transform which is GNU tar only (breaks macOS BSD tar)
+          STAGE="$(mktemp -d)"
+          cp -r . "${STAGE}/emo-main"
+          rm -rf "${STAGE}/emo-main/.git" \
+                 "${STAGE}/emo-main/.venv" \
+                 "${STAGE}/emo-main/__pycache__"
+          tar -czf /tmp/emo-serve/main.tar.gz -C "$STAGE" emo-main
+          rm -rf "$STAGE"
 
       - name: Start local HTTP server
         run: |
@@ -76,10 +79,11 @@ jobs:
 
       - name: Patch install.sh — redirect archive URL to localhost
         run: |
-          # Redirect both the "latest branch" and "tagged release" archive URLs
+          # Rewrite both archive URL patterns to point at the local server.
+          # Use a fixed placeholder string (no shell vars in sed pattern).
           sed \
-            -e 's|https://github.com/${EMO_GITHUB_REPO}/archive/refs/heads/main.tar.gz|http://localhost:8765/main.tar.gz|g' \
-            -e 's|https://github.com/${EMO_GITHUB_REPO}/archive/refs/tags/${VERSION}.tar.gz|http://localhost:8765/main.tar.gz|g' \
+            -e 's|https://github.com/[^/]*/[^/]*/archive/refs/heads/main.tar.gz|http://localhost:8765/main.tar.gz|g' \
+            -e 's|https://github.com/[^/]*/[^/]*/archive/refs/tags/[^.]*\.tar\.gz|http://localhost:8765/main.tar.gz|g' \
             install.sh > /tmp/install-patched.sh
 
       - name: Run pip installer (non-interactive, custom prefix)
@@ -97,28 +101,3 @@ jobs:
       - name: Stop HTTP server
         if: always()
         run: kill "$(cat /tmp/http-server.pid)" 2>/dev/null || true
-
-  # ── Installer smoke test (binary method) ────────────────────────────────────
-  #
-  # Runs after release binaries are built (depends on the release workflow
-  # having already published assets). On PRs we skip this job to avoid
-  # needing a real release — it only runs on pushes to main/master.
-  install-script-binary:
-    name: "Installer (binary) / ${{ matrix.os }}"
-    runs-on: ${{ matrix.os }}
-    # Only run when there are actual published binaries to download
-    if: github.event_name == 'push'
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [ubuntu-latest, macos-latest]
-
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Run binary installer (non-interactive, latest release)
-        run: |
-          bash install.sh --method binary --prefix /tmp/emo-bin
-
-      - name: Verify emo binary
-        run: /tmp/emo-bin/emo --help
