@@ -162,7 +162,7 @@ def load_config(path: Path | str | None = None) -> Config:
     Search order:
       1. Explicit path argument
       2. EMO_CONFIG env var
-      3. ./config.yaml (cwd)
+      3. ./.emo.yaml (cwd)
       4. ~/.emo/config.yaml
     """
     candidates: list[Path] = []
@@ -171,18 +171,23 @@ def load_config(path: Path | str | None = None) -> Config:
     env = os.environ.get("EMO_CONFIG")
     if env:
         candidates.append(Path(env).expanduser())
-    candidates.append(Path.cwd() / "config.yaml")
+    candidates.append(Path.cwd() / ".emo.yaml")
     candidates.append(Path.home() / ".emo" / "config.yaml")
 
-    user_data: dict[str, Any] = {}
-    found_path: Path | None = None
+    found_configs: list[tuple[Path, dict[str, Any]]] = []
     for candidate in candidates:
         if candidate.exists():
             with candidate.open() as f:
                 loaded = yaml.safe_load(f) or {}
-            user_data = loaded
-            found_path = candidate
-            break
+            found_configs.append((candidate, loaded))
 
-    merged = _deep_merge(_DEFAULT_CONFIG, user_data)
+    # Merge from lowest priority to highest so higher-priority values win.
+    # candidates is ordered highest-to-lowest priority, so reverse before merging.
+    merged = _DEFAULT_CONFIG.copy()
+    found_path: Path | None = None
+    for cfg_path, cfg_data in reversed(found_configs):
+        merged = _deep_merge(merged, cfg_data)
+    if found_configs:
+        found_path = found_configs[0][0]  # highest-priority file for reporting
+
     return Config(merged, config_path=found_path)
