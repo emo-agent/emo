@@ -48,7 +48,6 @@
 </script>
 
 <script lang="ts">
-	import { resolve } from '$app/navigation';
 	let {
 		class: className,
 		variant = 'default',
@@ -63,12 +62,11 @@
 </script>
 
 {#if href}
-	<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -->
 	<a
 		bind:this={ref}
 		data-slot="button"
 		class={cn(buttonVariants({ variant, size }), className)}
-		href={disabled ? undefined : resolve(href)}
+		href={disabled ? undefined : href}
 		aria-disabled={disabled}
 		role={disabled ? 'link' : undefined}
 		tabindex={disabled ? -1 : undefined}

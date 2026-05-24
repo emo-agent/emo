@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { daemon } from '$lib/daemon/store.svelte';
-	import { goto, resolve } from '$app/navigation';
+	import { goto } from '$app/navigation';
+	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
 	import {
 		Plus,
