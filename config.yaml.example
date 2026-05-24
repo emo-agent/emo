@@ -1,53 +1,112 @@
-# Emo configuration
-# Copy to config.yaml (in project root) or ~/.emo/config.yaml
+# Emo configuration example
+# Copy to .emo.yaml (project root) or ~/.emo/config.yaml
 
-# ── Option A: Direct provider ──────────────────────────────────────────────
-# Use the provider/model format. No api_base needed.
-#
-model: "openai/gpt-4o"
-# model: "anthropic/claude-3-5-sonnet-20241022"
-# model: "ollama/llama3.2"
-
-# ── Option B: OpenRouter (or any OpenAI-compatible endpoint) ───────────────
-# Set api_base + api_key, then write JUST the model name (no prefix).
-#
-# model: "google/gemini-2.0-flash-001"
-# model: "anthropic/claude-3.5-sonnet"
-# model: "mistralai/mistral-large"
-# model: "meta-llama/llama-3.1-70b-instruct"
-# api_base: "https://openrouter.ai/api/v1"
-# api_key: "sk-or-..."
-#
-# Other compatible endpoints:
-# api_base: "http://localhost:1234/v1"   # LM Studio
-# api_base: "http://localhost:11434/v1"  # Ollama REST
-
-# api_base: null   # uncomment and set to enable
-# api_key: null    # or use OPENAI_API_KEY env var
-
-# ── Agent settings ─────────────────────────────────────────────────────────
+# ── Agent (shared default for all agents) ─────────────────────────────────────
 agent:
-  max_iterations: 20
-  context_window: 40000
-  temperature: 0.7
+  llm:
+    # ── Option A: Direct provider ──────────────────────────────────────────
+    # Use the provider/model format. No api_base needed.
+    model: "openai/gpt-4o"
+    # model: "anthropic/claude-3-5-sonnet-20241022"
+    # model: "ollama/llama3.2"
 
-# ── Memory ─────────────────────────────────────────────────────────────────
+    # ── Option B: OpenRouter (or any OpenAI-compatible endpoint) ───────────
+    # Set api_base + model name (no prefix needed — emo adds openai/ for you).
+    # model: "google/gemini-2.0-flash-001"
+    # model: "anthropic/claude-3.5-sonnet"
+    # model: "meta-llama/llama-3.1-70b-instruct"
+    # api_base: "https://openrouter.ai/api/v1"
+    # api_key: "sk-or-..."
+    #
+    # Other compatible endpoints:
+    # api_base: "http://localhost:1234/v1"   # LM Studio
+    # api_base: "http://localhost:11434/v1"  # Ollama REST
+
+    # api_base: ~   # or use OPENAI_API_BASE env var
+    # api_key: ~    # or use OPENAI_API_KEY env var
+
+    temperature: 0.7
+    max_iterations: 20
+    context_window: 40000
+    # max_tokens: ~   # null = no limit
+
+  # Optional system prompt override (applies to all agents unless per-agent file overrides it)
+  # prompt: "You are Emo, a helpful personal AI assistant."
+
+  # Tools available to agents — omit or set to null to enable all tools
+  tools:
+    - shell
+    - file_read
+    - file_write
+    - web_fetch
+
+  # MCP servers (schema only — connection support coming soon)
+  # mcps:
+  #   - name: myserver
+  #     type: local        # local | remote
+  #     command: "npx -y @modelcontextprotocol/server-filesystem /tmp"
+
+  # Skills to inject into the system prompt (list of skill names from skills_dir)
+  # skills: []
+
+  # Filesystem access rules (schema only — enforcement coming soon)
+  # privileges:
+  #   - path: ~/projects
+  #     read: true
+  #     write: true
+  #     execute: false
+
+  # Sub-agents this agent can delegate to
+  # subagents: []
+
+# ── Router (supervisor) ────────────────────────────────────────────────────────
+router:
+  enabled: true             # auto-route messages to the best sub-agent
+  default: general          # fallback agent when routing is uncertain
+  agents:                   # agents the router may dispatch to
+    - general
+    - code
+    - research
+  llm:
+    # The router uses a cheap, fast call — usually fine to leave as-is.
+    # Inherits model/api_base/api_key from agent.llm if not set here.
+    temperature: 0.0
+    max_tokens: 10
+
+# ── Memory ────────────────────────────────────────────────────────────────────
 memory:
   db_path: "~/.emo/memory.db"
   max_facts: 200
-  summarize_after: 10    # auto-summarise session every N turns
+  summarize_after: 10       # auto-summarise session every N turns
 
-# ── Tools ──────────────────────────────────────────────────────────────────
-tools:
-  shell: true
-  file_read: true
-  file_write: true
-  web_fetch: true
+# ── Features ──────────────────────────────────────────────────────────────────
+features:
+  routing: true             # enable supervisor routing
+  memory: true              # enable persistent memory
+  web: false                # reserved — web UI support
 
-# ── Skills ─────────────────────────────────────────────────────────────────
-# Drop .md files in this directory — they're injected into the system prompt.
-skills_dir: "~/.emo/skills"
+# ── Web (reserved) ────────────────────────────────────────────────────────────
+# web: {}
 
-# ── Supervisor ─────────────────────────────────────────────────────────────
-supervisor:
-  enabled: true   # auto-route to code/research/general agent
+# ─────────────────────────────────────────────────────────────────────────────
+# Per-agent overrides
+# ─────────────────────────────────────────────────────────────────────────────
+# Place agent-specific YAML files in:
+#   ~/.emo/agents/<name>.yaml        — global per-user
+#   .emo/agents/<name>.yaml          — project-local (higher priority)
+#
+# Each file uses the same schema as the `agent:` block above.
+# Example: .emo/agents/code.yaml
+#
+#   llm:
+#     temperature: 0.2
+#   prompt: "You are a senior Python engineer..."
+#   tools:
+#     - shell
+#     - file_read
+#     - file_write
+#   privileges:
+#     - path: ~/projects/myapp
+#       read: true
+#       write: true
+#       execute: false

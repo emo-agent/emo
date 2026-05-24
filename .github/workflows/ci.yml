@@ -2,9 +2,9 @@ name: CI
 
 on:
   push:
-    branches: ["main", "master"]
+    branches: ["main"]
   pull_request:
-    branches: ["main", "master"]
+    branches: ["main"]
 
 jobs:
   # ── Unit tests ──────────────────────────────────────────────────────────────
@@ -30,7 +30,53 @@ jobs:
         run: pip install -e ".[dev]"
 
       - name: Run tests
-        run: pytest --tb=short -q
+        run: pytest --tb=short -v -s
+
+  # ── Web frontend ─────────────────────────────────────────────────────────────
+  web:
+    name: "Web / lint + check + build"
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4.2.2
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4.4.0
+        with:
+          node-version: "22"
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: "10"
+          run_install: false
+
+      - name: Get pnpm store directory
+        id: pnpm-store
+        run: echo "path=$(pnpm store path --silent)" >> "$GITHUB_OUTPUT"
+
+      - name: Cache pnpm store
+        uses: actions/cache@v4
+        with:
+          path: ${{ steps.pnpm-store.outputs.path }}
+          key: pnpm-ubuntu-${{ hashFiles('web/pnpm-lock.yaml') }}
+          restore-keys: pnpm-ubuntu-
+
+      - name: Install dependencies
+        working-directory: web
+        run: pnpm install --frozen-lockfile
+
+      - name: Lint
+        working-directory: web
+        run: pnpm lint
+
+      - name: Type-check
+        working-directory: web
+        run: pnpm check
+
+      - name: Build
+        working-directory: web
+        run: pnpm build
 
   # ── Installer smoke test (pip method) ───────────────────────────────────────
   install-script-pip:
