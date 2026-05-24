@@ -82,7 +82,7 @@ PLATFORM="${OS_KEY}-${ARCH_KEY}"
 SUPPORTED_PLATFORMS="linux-x86_64 linux-aarch64 macos-x86_64 macos-arm64"
 HAS_BINARY=0
 for p in $SUPPORTED_PLATFORMS; do
-  [[ "$p" == "$PLATFORM" ]] && HAS_BINARY=1 && break
+  if [[ "$p" == "$PLATFORM" ]]; then HAS_BINARY=1; break; fi
 done
 
 if [[ $HAS_BINARY -eq 0 && "$METHOD" == "binary" ]]; then
@@ -227,7 +227,7 @@ _patch_shell_path() {
       _add_to_rc "${ZDOTDIR:-$HOME}/.zshrc" ;;
     bash)
       _add_to_rc "${HOME}/.bashrc"
-      [[ "$OS_KEY" == "macos" ]] && _add_to_rc "${HOME}/.bash_profile" ;;
+      if [[ "$OS_KEY" == "macos" ]]; then _add_to_rc "${HOME}/.bash_profile"; fi ;;
     fish)
       local fish_rc="${HOME}/.config/fish/config.fish"
       mkdir -p "$(dirname "$fish_rc")"
