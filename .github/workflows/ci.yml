@@ -30,7 +30,7 @@ jobs:
         run: pip install -e ".[dev]"
 
       - name: Run tests
-        run: pytest --tb=short -q
+        run: pytest --tb=short -v -s
 
   # ── Installer smoke test (pip method) ───────────────────────────────────────
   install-script-pip:

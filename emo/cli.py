@@ -9,6 +9,7 @@ from pathlib import Path
 
 from prompt_toolkit import PromptSession
 from prompt_toolkit.auto_suggest import AutoSuggestFromHistory
+from prompt_toolkit.completion import Completer, Completion
 from prompt_toolkit.history import FileHistory
 from prompt_toolkit.styles import Style
 from rich.console import Console
@@ -43,6 +44,51 @@ PROMPT_STYLE = Style.from_dict(
         "prompt": "ansiblue bold",
     }
 )
+
+
+# ── Tab completion ────────────────────────────────────────────────────────────
+
+_COMMANDS = [
+    "/help",
+    "/new",
+    "/model",
+    "/agent",
+    "/auto",
+    "/memory",
+    "/remember",
+    "/forget",
+    "/skills",
+    "/agents",
+    "/status",
+    "/exit",
+]
+
+
+class EmoCompleter(Completer):
+    """Tab-completion for slash commands and agent names."""
+
+    def __init__(self, agent_names: list[str]) -> None:
+        self._agent_names = agent_names
+
+    def get_completions(self, document, complete_event):
+        text = document.text_before_cursor
+        parts = text.split()
+
+        # Complete the command itself
+        if len(parts) == 0 or (len(parts) == 1 and not text.endswith(" ")):
+            word = parts[0] if parts else ""
+            for cmd in _COMMANDS:
+                if cmd.startswith(word):
+                    yield Completion(cmd, start_position=-len(word))
+            return
+
+        # Complete agent name after /agent
+        if len(parts) >= 1 and parts[0] == "/agent":
+            if len(parts) == 1 or (len(parts) == 2 and not text.endswith(" ")):
+                word = parts[1] if len(parts) == 2 else ""
+                for name in self._agent_names:
+                    if name.startswith(word):
+                        yield Completion(name, start_position=-len(word))
 
 
 # ── CLI state ─────────────────────────────────────────────────────────────────
@@ -353,6 +399,8 @@ class EmoApp:
         prompt_session: PromptSession = PromptSession(
             history=FileHistory(str(history_path)),
             auto_suggest=AutoSuggestFromHistory(),
+            completer=EmoCompleter(self.supervisor.agent_names),
+            complete_while_typing=False,
             style=PROMPT_STYLE,
             multiline=False,
         )

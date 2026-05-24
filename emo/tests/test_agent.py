@@ -4,16 +4,14 @@ from __future__ import annotations
 
 from unittest.mock import MagicMock
 
-import pytest
-
+from emo.agent.agents import CodeAgent, GeneralAgent, ResearchAgent
 from emo.agent.base_agent import BaseAgent
-from emo.agent.agents import GeneralAgent, CodeAgent, ResearchAgent
-from emo.memory import SessionMemory, PersistentMemory
+from emo.memory import PersistentMemory, SessionMemory
 from emo.providers import BaseLLMProvider, LLMResponse, ToolCall
-from emo.tools import BaseTool, ToolRegistry
-
+from emo.tools import BaseTool
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
+
 
 def make_provider(*responses: LLMResponse) -> BaseLLMProvider:
     """Return a mock provider that yields each LLMResponse in order."""
@@ -27,7 +25,9 @@ def make_deps(tmp_path=None):
     if tmp_path:
         memory = PersistentMemory(tmp_path / "test.db")
     else:
-        import tempfile, pathlib
+        import pathlib
+        import tempfile
+
         _td = tempfile.mkdtemp()
         memory = PersistentMemory(pathlib.Path(_td) / "test.db")
     return session, memory
@@ -41,11 +41,13 @@ class UpperTool(BaseTool):
         "properties": {"text": {"type": "string"}},
         "required": ["text"],
     }
+
     def run(self, text: str) -> str:
         return text.upper()
 
 
 # ── BaseAgent — basic run ─────────────────────────────────────────────────────
+
 
 class TestBaseAgentRun:
     def test_plain_text_reply(self, tmp_path):
@@ -63,7 +65,9 @@ class TestBaseAgentRun:
 
         agent.run("test question")
         msgs = session.get()
-        assert any(m["role"] == "user" and m["content"] == "test question" for m in msgs)
+        assert any(
+            m["role"] == "user" and m["content"] == "test question" for m in msgs
+        )
 
     def test_assistant_reply_added_to_session(self, tmp_path):
         provider = make_provider(LLMResponse(content="my answer"))
@@ -72,7 +76,9 @@ class TestBaseAgentRun:
 
         agent.run("q")
         msgs = session.get()
-        assert any(m["role"] == "assistant" and m["content"] == "my answer" for m in msgs)
+        assert any(
+            m["role"] == "assistant" and m["content"] == "my answer" for m in msgs
+        )
 
     def test_session_is_cumulative(self, tmp_path):
         provider = make_provider(
@@ -104,7 +110,9 @@ class TestBaseAgentRun:
         provider = make_provider(LLMResponse(content="ok"))
         session, memory = make_deps(tmp_path)
         agent = GeneralAgent(
-            provider=provider, session=session, memory=memory,
+            provider=provider,
+            session=session,
+            memory=memory,
             extra_context="## Extra instructions",
         )
         agent.run("hi")
@@ -116,7 +124,9 @@ class TestBaseAgentRun:
     def test_no_extra_context_when_empty(self, tmp_path):
         provider = make_provider(LLMResponse(content="ok"))
         session, memory = make_deps(tmp_path)
-        agent = GeneralAgent(provider=provider, session=session, memory=memory, extra_context="")
+        agent = GeneralAgent(
+            provider=provider, session=session, memory=memory, extra_context=""
+        )
         agent.run("hi")
 
         call_args = provider.complete.call_args
@@ -127,12 +137,15 @@ class TestBaseAgentRun:
 
 # ── Tool calls ────────────────────────────────────────────────────────────────
 
+
 class TestBaseAgentToolCalls:
     def _make_agent_with_tool(self, provider, tmp_path, monkeypatch=None):
         """Agent wired to an isolated registry containing only UpperTool."""
         session, memory = make_deps(tmp_path)
         agent = GeneralAgent(
-            provider=provider, session=session, memory=memory,
+            provider=provider,
+            session=session,
+            memory=memory,
             tool_names=["upper"],
         )
         agent._tools = [UpperTool()]
@@ -140,13 +153,14 @@ class TestBaseAgentToolCalls:
 
     def test_tool_call_dispatched_and_result_added(self, tmp_path, monkeypatch):
         from emo.tools import registry as global_reg
+
         # Register UpperTool into the global registry for this test only
         global_reg.register(UpperTool())
 
         tc = ToolCall(id="tc1", name="upper", arguments='{"text":"hello"}')
         provider = make_provider(
-            LLMResponse(content="", tool_calls=[tc]),   # first: tool call
-            LLMResponse(content="HELLO"),               # second: final reply
+            LLMResponse(content="", tool_calls=[tc]),  # first: tool call
+            LLMResponse(content="HELLO"),  # second: final reply
         )
         agent, session = self._make_agent_with_tool(provider, tmp_path)
 
@@ -178,6 +192,7 @@ class TestBaseAgentToolCalls:
 
     def test_on_token_callback_receives_tool_preview(self, tmp_path):
         from emo.tools import registry as global_reg
+
         global_reg.register(UpperTool())
 
         tc = ToolCall(id="tc1", name="upper", arguments='{"text":"hi"}')
@@ -204,6 +219,7 @@ class TestBaseAgentToolCalls:
 
     def test_max_iterations_returns_fallback(self, tmp_path):
         from emo.tools import registry as global_reg
+
         global_reg.register(UpperTool())
 
         # Provider always returns a tool call → loop never terminates naturally
@@ -220,6 +236,7 @@ class TestBaseAgentToolCalls:
 
 
 # ── Tool resolution ───────────────────────────────────────────────────────────
+
 
 class TestToolResolution:
     def test_code_agent_has_correct_tools(self, tmp_path):
@@ -247,7 +264,9 @@ class TestToolResolution:
         provider = MagicMock(spec=BaseLLMProvider)
         session, memory = make_deps(tmp_path)
         agent = GeneralAgent(
-            provider=provider, session=session, memory=memory,
+            provider=provider,
+            session=session,
+            memory=memory,
             tool_names=["shell"],
         )
         names = {t.name for t in agent._tools}
@@ -256,12 +275,15 @@ class TestToolResolution:
 
 # ── build_system_prompt hook ──────────────────────────────────────────────────
 
+
 class TestBuildSystemPrompt:
     def test_default_combines_prompt_and_context(self, tmp_path):
         provider = MagicMock(spec=BaseLLMProvider)
         session, memory = make_deps(tmp_path)
         agent = GeneralAgent(
-            provider=provider, session=session, memory=memory,
+            provider=provider,
+            session=session,
+            memory=memory,
             extra_context="EXTRA",
         )
         prompt = agent.build_system_prompt()
@@ -285,6 +307,7 @@ class TestBuildSystemPrompt:
 
 
 # ── repr ──────────────────────────────────────────────────────────────────────
+
 
 class TestRepr:
     def test_repr_includes_name_and_tools(self, tmp_path):

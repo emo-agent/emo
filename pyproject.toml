@@ -28,7 +28,7 @@ build = [
 ]
 
 [tool.pytest.ini_options]
-testpaths = ["tests"]
+testpaths = ["emo/tests"]
 
 [tool.hatch.build.targets.wheel]
 packages = ["emo"]
