@@ -8,3 +8,4 @@ dist/
 build/
 .env
 config.yaml
+.pytest_cache/
